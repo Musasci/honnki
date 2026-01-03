@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>honNKi 管理ツール（ローカル専用）</title>
+  <style>
+    :root {
+      --bg0:#070A12; --bg1:#0B1020; --card:rgba(255,255,255,.06);
+      --line:rgba(255,255,255,.12); --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.62); --good:#38d39f; --warn:#ffcd57;
+      --accent:#74a3ff; --accent2:#ff5ea0;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      min-height:100vh;
+      background:
+        radial-gradient(1200px 800px at 20% 10%, rgba(116,163,255,.18), transparent 60%),
+        radial-gradient(900px 700px at 80% 30%, rgba(255,94,160,.12), transparent 60%),
+        radial-gradient(900px 900px at 50% 90%, rgba(56,211,159,.10), transparent 65%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x:hidden;
+    }
+    .wrap{max-width:980px; margin:0 auto; padding:22px 16px 60px}
+    header{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:14px}
+    h1{margin:0; font-size:18px; letter-spacing:.02em}
+    .sub{color:var(--muted); font-size:12px; line-height:1.4}
+    .grid{display:grid; gap:12px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:14px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+    .title{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px}
+    .title h2{margin:0; font-size:14px}
+    .badge{font-size:11px; color:var(--muted)}
+    label{display:block; font-size:12px; color:var(--muted); margin:10px 0 6px}
+    input, textarea{
+      width:100%; padding:10px 12px; border-radius:12px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      outline: none;
+    }
+    textarea{min-height:160px; resize:vertical; line-height:1.55}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .btn{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+      letter-spacing:.02em;
+    }
+    .btn:hover{border-color:rgba(255,255,255,.22); background:rgba(255,255,255,.09)}
+    .btn.primary{border-color: rgba(116,163,255,.6); background: rgba(116,163,255,.16)}
+    .btn.ok{border-color: rgba(56,211,159,.7); background: rgba(56,211,159,.14)}
+    .btn.warn{border-color: rgba(255,205,87,.7); background: rgba(255,205,87,.12)}
+    .status{font-size:12px; color:var(--muted); margin-left:2px}
+    .status.ok{color:rgba(56,211,159,.9)}
+    .status.ng{color:rgba(255,120,120,.95)}
+    .hint{font-size:12px; color:var(--muted); line-height:1.5; margin-top:8px}
+    details{margin-top:10px}
+    summary{cursor:pointer; color:rgba(255,255,255,.78); font-size:12px}
+    .drop{
+      border:1px dashed rgba(255,255,255,.22);
+      border-radius:16px;
+      padding:14px;
+      background: rgba(0,0,0,.20);
+      transition: .15s ease;
+    }
+    .drop.drag{border-color: rgba(116,163,255,.8); background: rgba(116,163,255,.08)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+    .hr{height:1px; background:rgba(255,255,255,.10); margin:12px 0}
+    @media (prefers-reduced-motion: no-preference) {
+      .glow {
+        background: linear-gradient(90deg, rgba(116,163,255,.18), rgba(255,94,160,.14), rgba(56,211,159,.12));
+        background-size: 200% 100%;
+        animation: grad 10s ease infinite;
+      }
+      @keyframes grad { 0%{background-position:0%} 50%{background-position:100%} 100%{background-position:0%} }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>honNKi 管理ツール <span class="badge">ローカル専用</span></h1>
+        <div class="sub">このファイルはGitHubにアップロードしません。ZIPを書き出して、サイトのファイルを上書きします。</div>
+      </div>
+      <div class="sub mono">site: https://musasci.github.io/honnki/</div>
+    </header>
+
+    <div class="grid">
+      <section class="card glow">
+        <div class="title">
+          <h2>YouTube投稿</h2>
+          <span class="badge">ドラッグ＆ドロップ + ボタン</span>
+        </div>
+
+        <div id="ytDrop" class="drop">
+          <div class="row" style="justify-content:space-between">
+            <div>
+              <div style="font-weight:700">ここに動画ファイルをドロップ</div>
+              <div class="hint">対応: mp4 / webm（YouTube側の仕様に従います）</div>
+            </div>
+            <button class="btn" id="ytPick" type="button">ファイル選択</button>
+          </div>
+          <div class="hr"></div>
+          <div class="row">
+            <div class="mono" id="ytFileLabel">未選択</div>
+            <span id="ytStatus" class="status"></span>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="ytOpen" type="button">YouTubeにアップロード</button>
+          <span class="status" id="ytNote">開いた画面に同じファイルをドラッグ＆ドロップしてください。</span>
+        </div>
+
+        <details>
+          <summary>サイトの「動画」ページに追加（任意）</summary>
+          <label>YouTube動画URL</label>
+          <input id="ytUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+          <div class="row" style="margin-top:10px">
+            <button class="btn ok" id="addVideo" type="button">動画を追加</button>
+            <button class="btn" id="addVideoAndExport" type="button">追加してZIP</button>
+            <span id="videoStatus" class="status"></span>
+          </div>
+          <div class="hint">※ 自動アップロード（API連携）は、Google側の認証設定が必要で、初心者向けではありません。</div>
+        </details>
+      </section>
+
+      <section class="card">
+        <div class="title">
+          <h2>ブログ投稿</h2>
+          <span class="badge">内容入力 + ボタン</span>
+        </div>
+        <label>タイトル</label>
+        <input id="blogTitle" type="text" placeholder="例：ふとした夜のメモ" />
+        <label>本文（Markdown）</label>
+        <textarea id="blogBody" placeholder="本文を書いてください。"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn ok" id="blogPublish" type="button">投稿してZIP</button>
+          <button class="btn" id="blogSaveOnly" type="button">下書き保存</button>
+          <span id="blogStatus" class="status"></span>
+        </div>
+
+        <details>
+          <summary>過去の記事を編集（任意）</summary>
+          <div class="row">
+            <select id="postSelect" style="flex:1; min-width:220px; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.22); color:var(--text)"></select>
+            <button class="btn" id="loadPost" type="button">読み込む</button>
+            <button class="btn warn" id="deletePost" type="button">削除</button>
+          </div>
+          <div class="hint">編集後は「投稿してZIP」または「ZIPを書き出す」で反映できます。</div>
+        </details>
+      </section>
+
+      <section class="card">
+        <div class="title">
+          <h2>Contact（Googleフォーム）</h2>
+          <span class="badge">一度だけ設定</span>
+        </div>
+        <label>フォーム埋め込みURL</label>
+        <input id="formUrl" type="url" placeholder=".../viewform?embedded=true" />
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="saveForm" type="button">保存</button>
+          <span id="formStatus" class="status"></span>
+        </div>
+        <div class="hint">迷惑投稿を減らすには、Googleフォーム側で「ログイン必須」「1人1回」「文字数制限」などを設定してください。</div>
+      </section>
+
+      <section class="card">
+        <div class="title">
+          <h2>ZIPを書き出す</h2>
+          <span class="badge">GitHubへ上書き</span>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="exportZip" type="button">更新ZIPを書き出す</button>
+          <span id="exportStatus" class="status"></span>
+        </div>
+        <div class="hint">ZIPを展開し、GitHubの「Upload files」で<strong>中身を全部</strong>上書きしてください。</div>
+      </section>
+    </div>
+  </div>
+
+  <input id="ytFile" type="file" accept="video/*" style="display:none" />
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+
+  const BASE_FILES = {"404.html": "<!doctype html>\n<html lang=\"ja\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content\" />\n  <meta name=\"referrer\" content=\"strict-origin-when-cross-origin\" />\n  <meta name=\"description\" content=\"ページが見つかりません。\" />\n  <meta name=\"robots\" content=\"noindex,nofollow\" />\n  <title>404 | 翠山海翔</title>\n  <link rel=\"canonical\" href=\"https://musasci.github.io/honnki/404.html\" />\n  <link rel=\"stylesheet\" href=\"site.css\" />\n  <script src=\"app.js\" defer></script>\n</head>\n<body class=\"theme-artist\">\n  <a class=\"skip\" href=\"#main\">本文へスキップ</a>\n  <header class=\"top top--compact\">\n    <div class=\"wrap top__inner\">\n      <a class=\"brand brand--mini\" href=\"index.html\" aria-label=\"ホーム\">\n        <span class=\"brand__mark\" aria-hidden=\"true\">\n          <span class=\"mark__spark\"></span>\n          <span class=\"mark__spark mark__spark--2\"></span>\n          <span class=\"mark__spark mark__spark--3\"></span>\n        </span>\n        <span class=\"brand__name\">\n          <span class=\"brand__jp\">翠山海翔</span>\n          <span class=\"brand__en\">Kaito Midoriyama</span>\n        </span>\n      </a>\n\n      <nav class=\"nav nav--mini\" aria-label=\"グローバルナビ\">\n        <a href=\"blog.html\">記事</a>\n        <a href=\"videos.html\">動画</a>\n        <a href=\"contact.html\">連絡</a>\n      </nav>\n    </div>\n  </header>\n\n  <main id=\"main\" class=\"section\">\n    <div class=\"wrap\">\n      <section class=\"card\" data-reveal=\"d2\">\n        <div class=\"card__body\">\n          <h1 class=\"hero__title\">404</h1>\n          <p class=\"muted\">Not found</p>\n          <div class=\"row u-mt-sm\">\n            <a class=\"btn btn--ghost\" href=\"index.html\">Home</a>\n          </div>\n        </div>\n      </section>\n    </div>\n  </main>\n  <footer class=\"footer footer--compact\">\n    <div class=\"wrap footer__inner\">\n      <small>© <span data-year></span> 翠山海翔</small>\n      <span class=\"footer__links\">\n        <a href=\"privacy.html\">プライバシー</a>\n      </span>\n    </div>\n  </footer>\n</body>\n</html>", "app.js": "/* honNKi - minimal app.js (public) */\n(() => {\n  \"use strict\";\n  const $ = (sel, root = document) => root.querySelector(sel);\n\n  const escapeHtml = (s) => String(s)\n    .replaceAll(\"&\", \"&amp;\")\n    .replaceAll(\"<\", \"&lt;\")\n    .replaceAll(\">\", \"&gt;\")\n    .replaceAll('\"', \"&quot;\")\n    .replaceAll(\"'\", \"&#39;\");\n\n  const fmtDate = (iso) => {\n    if (!iso) return \"\";\n    const d = new Date(iso + \"T00:00:00\");\n    if (Number.isNaN(d.getTime())) return iso;\n    const y = d.getFullYear();\n    const m = String(d.getMonth() + 1).padStart(2, \"0\");\n    const day = String(d.getDate()).padStart(2, \"0\");\n    return `${y}.${m}.${day}`;\n  };\n\n  async function fetchJson(path) {\n    const res = await fetch(path, { cache: \"no-store\" });\n    if (!res.ok) throw new Error(`fetch failed: ${path}`);\n    return await res.json();\n  }\n\n  function setYear() {\n    const y = new Date().getFullYear();\n    document.querySelectorAll(\"[data-year]\").forEach(el => el.textContent = String(y));\n  }\n\n  // --------- Home ----------\n  function renderMiniItem(el, title, meta, href) {\n    el.innerHTML = `\n      <a class=\"miniItem\" href=\"${href}\">\n        <div class=\"miniItem__title\">${escapeHtml(title)}</div>\n        <div class=\"miniItem__meta\">${escapeHtml(meta)}</div>\n      </a>`;\n  }\n\n  async function pageHome() {\n    const postBox = $(\"#homeLatestPost\");\n    const videoBox = $(\"#homeLatestVideo\");\n    try {\n      const posts = await fetchJson(\"posts.json\");\n      postBox?.setAttribute(\"aria-busy\", \"false\");\n      if (Array.isArray(posts) && posts.length) {\n        const p = posts[0];\n        renderMiniItem(postBox, p.title || \"\", fmtDate(p.date), `post.html?slug=${encodeURIComponent(p.slug)}`);\n      } else postBox.innerHTML = `<div class=\"muted\">まだありません</div>`;\n    } catch {\n      if (postBox) postBox.innerHTML = `<div class=\"muted\">読み込みに失敗しました</div>`;\n    }\n\n    try {\n      const videos = await fetchJson(\"videos.json\");\n      videoBox?.setAttribute(\"aria-busy\", \"false\");\n      if (Array.isArray(videos) && videos.length) {\n        const v = videos[0];\n        renderMiniItem(videoBox, v.title || \"Video\", fmtDate(v.date), \"videos.html\");\n      } else if (videoBox) videoBox.innerHTML = `<div class=\"muted\">まだありません</div>`;\n    } catch {\n      if (videoBox) videoBox.innerHTML = `<div class=\"muted\">読み込みに失敗しました</div>`;\n    }\n  }\n\n  // --------- Blog index ----------\n  function postCard(p) {\n    const href = `post.html?slug=${encodeURIComponent(p.slug)}`;\n    const tags = Array.isArray(p.tags) ? p.tags.slice(0, 5) : [];\n    const tagHtml = tags.map(t => `<span class=\"tag\">${escapeHtml(t)}</span>`).join(\"\");\n    return `\n      <article class=\"card card--post\">\n        <a class=\"card__body\" href=\"${href}\">\n          <div class=\"kicker\">${escapeHtml(fmtDate(p.date))}</div>\n          <h2 class=\"card__title\">${escapeHtml(p.title || \"\")}</h2>\n          <p class=\"card__text\">${escapeHtml(p.excerpt || \"\")}</p>\n          <div class=\"tagRow\">${tagHtml}</div>\n        </a>\n      </article>`;\n  }\n\n  async function pageBlogIndex() {\n    const grid = $(\"#postsAll\");\n    const q = $(\"#q\");\n    if (!grid) return;\n    try {\n      const posts = await fetchJson(\"posts.json\");\n      const all = Array.isArray(posts) ? posts : [];\n      grid.setAttribute(\"aria-busy\", \"false\");\n\n      const render = () => {\n        const term = (q?.value || \"\").trim().toLowerCase();\n        const filtered = !term ? all : all.filter(p => {\n          const blob = `${p.title||\"\"}\\n${p.excerpt||\"\"}\\n${(p.tags||[]).join(\" \")}`.toLowerCase();\n          return blob.includes(term);\n        });\n        grid.innerHTML = filtered.map(postCard).join(\"\") || `<div class=\"muted\">見つかりません</div>`;\n      };\n\n      q?.addEventListener(\"input\", render);\n      render();\n    } catch {\n      grid.innerHTML = `<div class=\"muted\">読み込みに失敗しました</div>`;\n    }\n  }\n\n  // --------- Post page (basic markdown) ----------\n  function mdToHtml(md) {\n    const lines = String(md || \"\").replace(/\\r\\n/g, \"\\n\").split(\"\\n\");\n    let html = \"\";\n    let inCode = false;\n    let inUl = false;\n    const closeUl = () => { if (inUl) { html += \"</ul>\"; inUl = false; } };\n\n    const esc = escapeHtml;\n    const inline = (s) => esc(s)\n      .replace(/`([^`]+)`/g, \"<code>$1</code>\")\n      .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, (_m, a, b) => `<a href=\"${esc(b)}\" rel=\"noopener noreferrer\">${esc(a)}</a>`);\n\n    for (const raw of lines) {\n      const line = raw ?? \"\";\n      if (line.startsWith(\"```\")) {\n        if (!inCode) { closeUl(); inCode = true; html += \"<pre><code>\"; }\n        else { inCode = false; html += \"</code></pre>\"; }\n        continue;\n      }\n      if (inCode) { html += esc(line) + \"\\n\"; continue; }\n\n      const h = line.match(/^(#{1,3})\\s+(.*)$/);\n      if (h) {\n        closeUl();\n        const lvl = h[1].length;\n        html += `<h${lvl}>${inline(h[2] || \"\")}</h${lvl}>`;\n        continue;\n      }\n      const li = line.match(/^\\-\\s+(.*)$/);\n      if (li) {\n        if (!inUl) { closeUl(); inUl = true; html += \"<ul>\"; }\n        html += `<li>${inline(li[1] || \"\")}</li>`;\n        continue;\n      } else closeUl();\n\n      const bq = line.match(/^>\\s?(.*)$/);\n      if (bq) { html += `<blockquote>${inline(bq[1] || \"\")}</blockquote>`; continue; }\n\n      if (line.trim() === \"\") continue;\n      html += `<p>${inline(line)}</p>`;\n    }\n    closeUl();\n    if (inCode) html += \"</code></pre>\";\n    return html;\n  }\n\n  async function pageBlogPost() {\n    const slug = new URLSearchParams(location.search).get(\"slug\") || \"\";\n    const mount = $(\"#postBody\");\n    const titleEl = $(\"#postTitle\");\n    const metaEl = $(\"#postMeta\");\n    if (!mount) return;\n\n    try {\n      const posts = await fetchJson(\"posts.json\");\n      const p = (Array.isArray(posts) ? posts : []).find(x => x.slug === slug);\n      if (!p) throw new Error(\"not found\");\n      if (titleEl) titleEl.textContent = p.title || \"\";\n      if (metaEl) metaEl.textContent = fmtDate(p.date);\n      const md = await (await fetch(`post-${encodeURIComponent(slug)}.md`, { cache: \"no-store\" })).text();\n      mount.innerHTML = mdToHtml(md);\n      mount.setAttribute(\"aria-busy\", \"false\");\n      document.title = `${p.title || \"Post\"} | honNKi`;\n    } catch {\n      mount.innerHTML = `<div class=\"muted\">記事を読み込めませんでした</div>`;\n      mount.setAttribute(\"aria-busy\", \"false\");\n    }\n  }\n\n  // --------- Videos ----------\n  function youTubeId(url) {\n    try {\n      const u = new URL(url);\n      if (u.hostname.includes(\"youtu.be\")) return u.pathname.replace(\"/\", \"\");\n      if (u.searchParams.get(\"v\")) return u.searchParams.get(\"v\");\n      const m = u.pathname.match(/\\/embed\\/([^/]+)/);\n      return m ? m[1] : \"\";\n    } catch { return \"\"; }\n  }\n\n  function videoCard(v) {\n    const title = escapeHtml(v.title || \"Video\");\n    const d = escapeHtml(fmtDate(v.date));\n    const yt = v.type === \"youtube\" ? youTubeId(v.url || \"\") : \"\";\n    const thumb = yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : \"\";\n    const media = yt\n      ? `<div class=\"videoThumb\"><img alt=\"\" loading=\"lazy\" src=\"${thumb}\"></div>`\n      : `<div class=\"videoThumb\"><div class=\"muted\">動画</div></div>`;\n    const link = yt ? `<a class=\"btn btn--ghost\" href=\"${escapeHtml(v.url||\"\")}\" target=\"_blank\" rel=\"noopener noreferrer\">YouTube</a>` : \"\";\n    return `\n      <article class=\"card card--video\">\n        <div class=\"card__body\">\n          <div class=\"kicker\">${d}</div>\n          <h2 class=\"card__title\">${title}</h2>\n          ${media}\n          <div class=\"row row--end\">${link}</div>\n        </div>\n      </article>`;\n  }\n\n  async function pageVideos() {\n    const grid = $(\"#videosGrid\");\n    if (!grid) return;\n    try {\n      const videos = await fetchJson(\"videos.json\");\n      const all = Array.isArray(videos) ? videos : [];\n      grid.setAttribute(\"aria-busy\", \"false\");\n      grid.innerHTML = all.map(videoCard).join(\"\") || `<div class=\"muted\">まだありません</div>`;\n    } catch {\n      grid.innerHTML = `<div class=\"muted\">読み込みに失敗しました</div>`;\n    }\n  }\n\n  // --------- Contact ----------\n  function validFormUrl(u) {\n    try {\n      const url = new URL(u);\n      if (url.protocol !== \"https:\") return false;\n      if (!url.hostname.endsWith(\"google.com\")) return false;\n      return true;\n    } catch { return false; }\n  }\n\n  async function pageContact() {\n    const status = $(\"#contactStatus\");\n    const wrap = $(\"#contactFrameWrap\");\n    const frame = $(\"#contactFrame\");\n    try {\n      const res = await fetch(\"contact_form_url.txt\", { cache: \"no-store\" });\n      const txt = (await res.text()).trim();\n      if (!txt || txt.startsWith(\"PASTE_\")) {\n        if (status) status.textContent = \"フォーム準備中\";\n        return;\n      }\n      const url = txt.includes(\"embedded=true\") ? txt : (txt + (txt.includes(\"?\") ? \"&\" : \"?\") + \"embedded=true\");\n      if (!validFormUrl(url)) {\n        if (status) status.textContent = \"フォームURLが無効です\";\n        return;\n      }\n      if (frame) frame.src = url;\n      if (wrap) wrap.hidden = false;\n      if (status) status.textContent = \"\";\n    } catch {\n      if (status) status.textContent = \"フォームを読み込めませんでした\";\n    }\n  }\n\n  function boot() {\n    setYear();\n    const page = document.body?.dataset?.page || \"\";\n    if (page === \"home\") pageHome();\n    if (page === \"blog-index\") pageBlogIndex();\n    if (page === \"blog-post\") pageBlogPost();\n    if (page === \"videos\") pageVideos();\n    if (page === \"contact\") pageContact();\n  }\n\n  document.addEventListener(\"DOMContentLoaded\", boot);\n})();\n", "blog.html": "<!doctype html>\n<html lang=\"ja\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content\" />\n  <meta name=\"referrer\" content=\"strict-origin-when-cross-origin\" />\n  <meta name=\"description\" content=\"制作ノート。短く、静かに。\" />\n  <meta name=\"robots\" content=\"index,follow,max-image-preview:large\" />\n  <title>Blog | 翠山海翔</title>\n  <link rel=\"canonical\" href=\"https://musasci.github.io/honnki/blog.html\" />\n  <link rel=\"stylesheet\" href=\"site.css\" />\n  <script src=\"app.js\" defer></script>\n</head>\n<body data-page=\"blog-index\" class=\"theme-artist\">\n  <a class=\"skip\" href=\"#main\">本文へスキップ</a>\n  <header class=\"top top--compact\">\n    <div class=\"wrap top__inner\">\n      <a class=\"brand brand--mini\" href=\"index.html\" aria-label=\"ホーム\">\n        <span class=\"brand__mark\" aria-hidden=\"true\">\n          <span class=\"mark__spark\"></span>\n          <span class=\"mark__spark mark__spark--2\"></span>\n          <span class=\"mark__spark mark__spark--3\"></span>\n        </span>\n        <span class=\"brand__name\">\n          <span class=\"brand__jp\">翠山海翔</span>\n          <span class=\"brand__en\">Kaito Midoriyama</span>\n        </span>\n      </a>\n\n      <nav class=\"nav nav--mini\" aria-label=\"グローバルナビ\">\n        <a href=\"blog.html\">記事</a>\n        <a href=\"videos.html\">動画</a>\n        <a href=\"contact.html\">連絡</a>\n      </nav>\n    </div>\n  </header>\n\n  <main id=\"main\" class=\"section\">\n    <div class=\"wrap\">\n      <div class=\"section__head\">\n        <h1 class=\"hero__title\" data-reveal=\"slow d1\">記事</h1>\n        <div class=\"search\" data-reveal=\"d2\">\n          <label class=\"sr\" for=\"q\">検索</label>\n          <input id=\"q\" class=\"search__input\" type=\"search\" placeholder=\"検索\" autocomplete=\"off\" />\n        </div>\n      </div>\n\n      <div id=\"postsAll\" class=\"grid\" aria-live=\"polite\" aria-busy=\"true\"></div>\n    </div>\n  </main>\n  <footer class=\"footer footer--compact\">\n    <div class=\"wrap footer__inner\">\n      <small>© <span data-year></span> 翠山海翔</small>\n      <span class=\"footer__links\">\n        <a href=\"privacy.html\">プライバシー</a>\n      </span>\n    </div>\n  </footer>\n</body>\n</html>\n", "contact.html": "<!doctype html>\n<html lang=\"ja\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content\" />\n  <meta name=\"referrer\" content=\"strict-origin-when-cross-origin\" />\n  <meta name=\"description\" content=\"連絡（送信のみ）。\" />\n  <meta name=\"robots\" content=\"index,follow,max-image-preview:large\" />\n  <title>連絡 | 翠山海翔</title>\n  <link rel=\"canonical\" href=\"https://musasci.github.io/honnki/contact.html\" />\n  <link rel=\"stylesheet\" href=\"site.css\" />\n  <script src=\"app.js\" defer></script>\n</head>\n\n<body data-page=\"contact\" class=\"theme-artist\">\n<a class=\"skip\" href=\"#main\">本文へスキップ</a>\n  <header class=\"top top--compact\">\n    <div class=\"wrap top__inner\">\n      <a class=\"brand brand--mini\" href=\"index.html\" aria-label=\"ホーム\">\n        <span class=\"brand__mark\" aria-hidden=\"true\">\n          <span class=\"mark__spark\"></span>\n          <span class=\"mark__spark mark__spark--2\"></span>\n          <span class=\"mark__spark mark__spark--3\"></span>\n        </span>\n        <span class=\"brand__name\">\n          <span class=\"brand__jp\">翠山海翔</span>\n          <span class=\"brand__en\">Kaito Midoriyama</span>\n        </span>\n      </a>\n\n      <nav class=\"nav nav--mini\" aria-label=\"グローバルナビ\">\n        <a href=\"blog.html\">記事</a>\n        <a href=\"videos.html\">動画</a>\n        <a href=\"contact.html\">連絡</a>\n      </nav>\n    </div>\n  </header>\n\n  \n  <main id=\"main\" class=\"section\">\n  <div class=\"wrap\">\n    <div class=\"section__head\">\n      <h1 class=\"hero__title\" data-reveal=\"slow d1\">連絡</h1>\n      <p class=\"muted\" data-reveal=\"d2\">送信のみ</p>\n    </div>\n\n    <section class=\"card\" data-reveal=\"d2\" aria-label=\"contact form\">\n      <div class=\"card__body\">\n        <div id=\"contactStatus\" class=\"status muted\" aria-live=\"polite\">読み込み中…</div>\n        <div class=\"frameWrap\" id=\"contactFrameWrap\" hidden>\n          <iframe id=\"contactFrame\" class=\"contactFrame\" title=\"Googleフォーム\" loading=\"lazy\" referrerpolicy=\"strict-origin-when-cross-origin\"></iframe>\n        </div>\n        <p class=\"muted\" style=\"margin-top:12px\">※ 個人情報や攻撃的な内容は送らないでください。</p>\n      </div>\n    </section>\n  </div>\n</main>\n  <footer class=\"footer footer--compact\">\n    <div class=\"wrap footer__inner\">\n      <small>© <span data-year></span> 翠山海翔</small>\n      <span class=\"footer__links\">\n        <a href=\"privacy.html\">プライバシー</a>\n      </span>\n    </div>\n  </footer>\n</body>\n</html>\n", "contact_form_url.txt": "PASTE_GOOGLE_FORM_EMBED_URL_HERE\n", "index.html": "<!doctype html>\n<html lang=\"ja\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content\" />\n  <meta name=\"referrer\" content=\"strict-origin-when-cross-origin\" />\n  <meta name=\"description\" content=\"音楽とことば。夜の静けさに寄り添う。\" />\n  <meta name=\"robots\" content=\"index,follow,max-image-preview:large\" />\n  <title>翠山海翔 | Night Music</title>\n  <link rel=\"canonical\" href=\"https://musasci.github.io/honnki/\" />\n  <link rel=\"stylesheet\" href=\"site.css\" />\n  <script src=\"app.js\" defer></script>\n</head>\n<body data-page=\"home\" class=\"theme-artist\">\n  <a class=\"skip\" href=\"#main\">本文へスキップ</a>\n  <header class=\"top top--compact\">\n    <div class=\"wrap top__inner\">\n      <a class=\"brand brand--mini\" href=\"index.html\" aria-label=\"ホーム\">\n        <span class=\"brand__mark\" aria-hidden=\"true\">\n          <span class=\"mark__spark\"></span>\n          <span class=\"mark__spark mark__spark--2\"></span>\n          <span class=\"mark__spark mark__spark--3\"></span>\n        </span>\n        <span class=\"brand__name\">\n          <span class=\"brand__jp\">翠山海翔</span>\n          <span class=\"brand__en\">Kaito Midoriyama</span>\n        </span>\n      </a>\n\n      <nav class=\"nav nav--mini\" aria-label=\"グローバルナビ\">\n        <a href=\"blog.html\">記事</a>\n        <a href=\"videos.html\">動画</a>\n        <a href=\"contact.html\">連絡</a>\n      </nav>\n    </div>\n  </header>\n\n  <main id=\"main\" class=\"section section--hero\">\n    <div class=\"wrap\">\n      <div class=\"hero hero--mini\">\n        <h1 class=\"hero__title\" data-reveal=\"slow d1\">ふとした<span class=\"grad\">夜</span>を歌に変える</h1>\n        <p class=\"muted\" data-reveal=\"d2\">記事 / 動画</p>\n      </div>\n\n      <div class=\"grid grid--home\" data-reveal=\"d2\">\n        <section class=\"card card--home\" aria-label=\"Latest post\">\n          <div class=\"card__body\">\n            <div class=\"kicker\">最新の記事</div>\n            <div id=\"homeLatestPost\" class=\"miniList\" aria-busy=\"true\"></div>\n            <div class=\"row row--end\">\n              <a class=\"btn btn--ghost\" href=\"blog.html\">記事</a>\n            </div>\n          </div>\n        </section>\n\n        <section class=\"card card--home\" aria-label=\"Latest video\">\n          <div class=\"card__body\">\n            <div class=\"kicker\">最新の動画</div>\n            <div id=\"homeLatestVideo\" class=\"miniList\" aria-busy=\"true\"></div>\n            <div class=\"row row--end\">\n              <a class=\"btn btn--ghost\" href=\"videos.html\">動画</a>\n            </div>\n          </div>\n        </section>\n      </div>\n    </div>\n  </main>\n  <footer class=\"footer footer--compact\">\n    <div class=\"wrap footer__inner\">\n      <small>© <span data-year></span> 翠山海翔</small>\n      <span class=\"footer__links\">\n        <a href=\"privacy.html\">プライバシー</a>\n      </span>\n    </div>\n  </footer>\n</body>\n</html>\n", "post-security-basics.md": "# 個人サイトの最小セキュリティ運用メモ\n\n「万全」を保証できる構成はありませんが、個人サイトでは **攻撃面を減らす** のが効果的です。\n\n## まず効く対策\n\n- フォーム/コメント欄を置かない（入力データの保管が発生しない）\n- 外部埋め込みを最小化（必要ならクリックで読み込み）\n- 画像のEXIFを削除（位置情報・撮影日時が残ることがあります）\n- 公開してはいけない情報（住所・電話・勤務先の詳細）を載せない\n- リポジトリに APIキーや限定URLを入れない\n\n## このテンプレートの設計\n\n- 記事は Markdown で作成し、ブラウザ側で **安全側に変換**（生のHTMLは実行しない）\n- Cloudflare Pages を使う場合は `_headers` で CSP 等を設定可能\n- YouTube は `youtube-nocookie.com` を使い、クリックされるまで iframe を生成しません\n\n> 運用（載せる情報の選別）が一番重要です。\n", "post-welcome.md": "# 最初の記事：このサイトの使い方（ブログ内製）\n\nこのブログは「サイト内で完結」する前提で作られています。  \n記事は **Markdown（.md）** を追加し、一覧用の **posts.json** に追記するだけです。\n\n## 記事を追加する手順（最短）\n\n- `content/posts.json` にメタデータ（slug, title, date...）を追加\n- `content/posts/<slug>.md` を新規作成\n- GitHub に push すると公開環境に反映\n\n> slug は URL で使う識別子です（例：`my-first-post`）。日本語より英数字が安全です。\n\n## 使えるMarkdown（最低限）\n\n- 見出し：`#` / `##` / `###`\n- 箇条書き：`- item`\n- 引用：`> quote`\n- コード：``` で囲む\n- リンク：`[text](https://example.com)`（https のみ）\n\n```text\n例：コードブロック\nここにメモやコマンドを書けます\n```\n", "post.html": "<!doctype html>\n<html lang=\"ja\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content\" />\n<meta name=\"referrer\" content=\"strict-origin-when-cross-origin\" />\n  <meta name=\"description\" content=\"翠山海翔のブログ記事。\" />\n  <title>Post | 翠山海翔</title>\n  \n    <link rel=\"canonical\" href=\"https://musasci.github.io/honnki/post.html\" />\n<link rel=\"stylesheet\" href=\"site.css\" />\n  <script src=\"app.js\" defer></script>\n</head>\n\n<body data-page=\"blog-post\" class=\"theme-artist\">\n  <a class=\"skip\" href=\"#main\">本文へスキップ</a>\n\n  <header class=\"top top--compact\">\n    <div class=\"wrap top__inner\">\n      <a class=\"brand brand--mini\" href=\"index.html\" aria-label=\"ホーム\">\n        <span class=\"brand__mark\" aria-hidden=\"true\">\n          <span class=\"mark__spark\"></span>\n          <span class=\"mark__spark mark__spark--2\"></span>\n          <span class=\"mark__spark mark__spark--3\"></span>\n        </span>\n        <span class=\"brand__name\">\n          <span class=\"brand__jp\">翠山海翔</span>\n          <span class=\"brand__en\">Kaito Midoriyama</span>\n        </span>\n      </a>\n\n      <nav class=\"nav nav--mini\" aria-label=\"グローバルナビ\"><a href=\"blog.html\">記事</a><a href=\"videos.html\">動画</a><a href=\"contact.html\">連絡</a></nav>\n    </div>\n  </header>\n\n  <main id=\"main\" class=\"section\">\n    <div class=\"wrap\">\n      <article class=\"post\">\n        <header class=\"post__head\">\n          <p class=\"post__meta\">\n            <span class=\"badge\" id=\"postDate\"></span>\n            <span class=\"badge\" id=\"postRead\"></span>\n          </p>\n          <h1 id=\"postTitle\">Loading...</h1>\n          <p id=\"postExcerpt\" class=\"muted\"></p>\n          <div id=\"postTags\" class=\"tags\"></div>\n        </header>\n\n        <div id=\"postBody\" class=\"post__body card\" aria-live=\"polite\" aria-busy=\"true\"></div>\n\n        <nav class=\"post__nav\" aria-label=\"記事ナビゲーション\">\n          <a class=\"link\" id=\"prevPost\" href=\"blog.html\">← 前へ</a>\n          <a class=\"link\" id=\"nextPost\" href=\"blog.html\">次へ →</a>\n        </nav>\n      </article>\n    </div>\n  </main>\n\n  <footer class=\"footer\">\n    <div class=\"wrap footer__inner\">\n      <small>© <span data-year></span> 翠山海翔</small>\n      <a href=\"blog.html\">ブログ一覧へ</a>\n    </div>\n  </footer>\n</body>\n</html>", "posts.json": "[\n  {\n    \"slug\": \"welcome\",\n    \"title\": \"最初の記事：このサイトの使い方（ブログ内製）\",\n    \"date\": \"2026-01-03\",\n    \"readMinutes\": 4,\n    \"excerpt\": \"posts.json と Markdown を追加するだけで記事を増やせる、静的ブログの運用手順。\",\n    \"tags\": [\n      \"運用\",\n      \"静的サイト\",\n      \"ブログ\"\n    ]\n  },\n  {\n    \"slug\": \"security-basics\",\n    \"title\": \"個人サイトの最小セキュリティ運用メモ\",\n    \"date\": \"2026-01-03\",\n    \"readMinutes\": 5,\n    \"excerpt\": \"フォームなし・外部埋め込み最小化・画像のメタデータ対策など、漏洩リスクを下げる運用。\",\n    \"tags\": [\n      \"セキュリティ\",\n      \"プライバシー\"\n    ]\n  }\n]", "privacy.html": "<!doctype html>\n<html lang=\"ja\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content\" />\n  <meta name=\"referrer\" content=\"strict-origin-when-cross-origin\" />\n  <meta name=\"description\" content=\"プライバシーとセキュリティ。\" />\n  <meta name=\"robots\" content=\"noindex,follow\" />\n  <title>プライバシー | 翠山海翔</title>\n  <link rel=\"canonical\" href=\"https://musasci.github.io/honnki/privacy.html\" />\n  <link rel=\"stylesheet\" href=\"site.css\" />\n  <script src=\"app.js\" defer></script>\n</head>\n<body data-page=\"privacy\" class=\"theme-artist\">\n  <a class=\"skip\" href=\"#main\">本文へスキップ</a>\n  <header class=\"top top--compact\">\n    <div class=\"wrap top__inner\">\n      <a class=\"brand brand--mini\" href=\"index.html\" aria-label=\"ホーム\">\n        <span class=\"brand__mark\" aria-hidden=\"true\">\n          <span class=\"mark__spark\"></span>\n          <span class=\"mark__spark mark__spark--2\"></span>\n          <span class=\"mark__spark mark__spark--3\"></span>\n        </span>\n        <span class=\"brand__name\">\n          <span class=\"brand__jp\">翠山海翔</span>\n          <span class=\"brand__en\">Kaito Midoriyama</span>\n        </span>\n      </a>\n\n      <nav class=\"nav nav--mini\" aria-label=\"グローバルナビ\">\n        <a href=\"blog.html\">記事</a>\n        <a href=\"videos.html\">動画</a>\n        <a href=\"contact.html\">連絡</a>\n      </nav>\n    </div>\n  </header>\n\n  <main id=\"main\" class=\"section\">\n    <div class=\"wrap\">\n      <div class=\"section__head\">\n        <h1 class=\"hero__title\" data-reveal=\"slow d1\">プライバシー</h1>\n      </div>\n\n      <section class=\"card\" data-reveal=\"d2\">\n        <div class=\"card__body prose\">\n          <ul>\n            <li>このサイトは静的サイト（GitHub Pages）です。</li>\n            <li>YouTube埋め込みを使う場合、YouTube側でデータが扱われます。</li>\n            <li>連絡はGitHub（公開）です。個人情報（住所・電話・パスワード等）は送らないでください。</li>\n          <li>連絡フォーム：Googleフォームを利用する場合、送信内容はGoogle側に保存されます。</li>\n      </ul>\n        </div>\n      </section>\n    </div>\n  </main>\n  <footer class=\"footer footer--compact\">\n    <div class=\"wrap footer__inner\">\n      <small>© <span data-year></span> 翠山海翔</small>\n      <span class=\"footer__links\">\n        <a href=\"privacy.html\">プライバシー</a>\n      </span>\n    </div>\n  </footer>\n</body>\n</html>\n", "robots.txt": "User-agent: *\nAllow: /\n\nSitemap: https://musasci.github.io/honnki/sitemap.xml\n", "site.css": ":root{\n  --bg:#050712;\n  --bg2:#070a18;\n  --card:rgba(12,16,32,.72);\n  --ink:#eaf0ff;\n  --muted:#a7b3c7;\n  --neon:#6df7ff;\n  --violet:#b887ff;\n  --amber:#ffb15a;\n  --line:rgba(234,240,255,.10);\n  --shadow:0 22px 70px rgba(0,0,0,.55);\n  --r:18px;\n}\n\n*{box-sizing:border-box}\nhtml,body{height:100%}\nbody{\n  margin:0;\n  font-family: system-ui, -apple-system, \"Segoe UI\", Roboto, \"Noto Sans JP\", sans-serif;\n  color:var(--ink);\n  background:\n    radial-gradient(900px 500px at 20% -10%, rgba(26,166,168,.18), transparent 60%),\n    radial-gradient(900px 500px at 90% 0%, rgba(255,177,90,.12), transparent 55%),\n    linear-gradient(180deg, var(--bg), var(--bg2));\n  line-height:1.65;\n}\n\na{color:inherit; text-decoration:none}\na:hover{text-decoration:underline}\ncode{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace}\npre{\n  overflow:auto;\n  padding:14px 14px;\n  border-radius: 14px;\n  border:1px solid rgba(233,238,245,.12);\n  background: rgba(0,0,0,.22);\n}\npre code{font-size: 13px}\nblockquote{\n  margin:14px 0;\n  padding:12px 14px;\n  border-left:3px solid rgba(26,166,168,.45);\n  background: rgba(233,238,245,.04);\n  border-radius: 12px;\n}\n\n.wrap{width:min(1100px, 92vw); margin:0 auto}\n\n.skip{\n  position:absolute; left:-9999px; top:auto;\n  width:1px; height:1px; overflow:hidden;\n}\n.skip:focus{left:12px; top:12px; width:auto; height:auto; padding:10px 12px; background:#111; border-radius:10px; z-index:999}\n\n.top{\n  position:sticky; top:0; z-index:50;\n  backdrop-filter:saturate(140%) blur(10px);\n  background: rgba(11,15,20,.70);\n  border-bottom:1px solid var(--line);\n}\n.top__inner{\n  display:flex; align-items:center; justify-content:space-between;\n  padding:14px 0;\n}\n.brand{display:flex; align-items:center; gap:10px}\n.brand__mark{\n  width:34px; height:34px; border-radius:12px;\n  background:\n    radial-gradient(12px 12px at 30% 35%, rgba(255,177,90,.9), transparent 60%),\n    radial-gradient(18px 18px at 70% 65%, rgba(26,166,168,.9), transparent 60%),\n    linear-gradient(135deg, rgba(233,238,245,.10), rgba(233,238,245,.02));\n  border:1px solid rgba(233,238,245,.18);\n  box-shadow: 0 0 0 6px rgba(26,166,168,.06);\n}\n.brand__name{font-weight:700; letter-spacing:.2px}\n\n.nav{display:flex; gap:16px; align-items:center}\n.nav a{opacity:.9}\n.nav__cta{\n  padding:8px 12px; border-radius:999px;\n  border:1px solid rgba(233,238,245,.18);\n  background: rgba(233,238,245,.06);\n}\n\n.hero{padding:64px 0 28px}\n.hero__inner{display:grid; grid-template-columns: 1.2fr .8fr; gap:28px; align-items:center}\n@media (max-width: 900px){ .hero__inner{grid-template-columns:1fr} }\n\n.eyebrow{\n  display:inline-block;\n  font-size:12px; letter-spacing:.2em; text-transform:uppercase;\n  padding:6px 10px; border-radius:999px;\n  border:1px solid rgba(233,238,245,.16);\n  background: rgba(233,238,245,.05);\n  color: var(--muted);\n}\nh1{margin:14px 0 10px; font-size: clamp(28px, 4vw, 46px); line-height:1.15}\n.lead{color:var(--muted); font-size: 16px}\n\n.hero__actions{display:flex; gap:12px; margin:18px 0 12px; flex-wrap:wrap}\n.btn{\n  display:inline-flex; align-items:center; justify-content:center;\n  padding:10px 14px; border-radius:999px;\n  background: linear-gradient(135deg, rgba(26,166,168,.95), rgba(255,177,90,.70));\n  color:#071014; font-weight:800;\n  box-shadow: var(--shadow);\n  border:1px solid rgba(0,0,0,.25);\n}\n.btn--ghost{\n  background: rgba(233,238,245,.06);\n  color:var(--ink);\n  border:1px solid rgba(233,238,245,.18);\n  box-shadow:none;\n}\n\n.hero__meta{\n  margin:14px 0 0; padding:0;\n  list-style:none; display:flex; gap:10px; flex-wrap:wrap;\n  color: var(--muted);\n}\n.hero__meta li{\n  padding:6px 10px; border-radius:999px;\n  border:1px solid rgba(233,238,245,.14);\n  background: rgba(233,238,245,.04);\n  font-size:13px;\n}\n\n.hero__panel{position:relative; min-height:240px}\n.glow{\n  position:absolute; inset:-30px;\n  background:\n    radial-gradient(240px 180px at 30% 30%, rgba(26,166,168,.20), transparent 60%),\n    radial-gradient(220px 180px at 70% 60%, rgba(255,177,90,.16), transparent 55%);\n  filter: blur(14px);\n}\n.panel{\n  position:relative;\n  padding:18px;\n  border-radius: var(--r);\n  border:1px solid rgba(233,238,245,.14);\n  background:\n    linear-gradient(180deg, rgba(15,23,32,.85), rgba(15,23,32,.55));\n  box-shadow: var(--shadow);\n  overflow:hidden;\n}\n.panel::after{\n  content:\"\";\n  position:absolute; inset:0;\n  background:\n    repeating-linear-gradient(\n      90deg,\n      rgba(233,238,245,.05) 0px,\n      rgba(233,238,245,.05) 1px,\n      transparent 1px,\n      transparent 18px\n    );\n  opacity:.35;\n  pointer-events:none;\n}\n.panel__row{display:flex; align-items:center; gap:10px; position:relative}\n.chip{\n  font-size:12px; letter-spacing:.12em;\n  padding:6px 10px; border-radius:999px;\n  background: rgba(26,166,168,.14);\n  border:1px solid rgba(26,166,168,.35);\n}\n.chip--alt{\n  background: rgba(255,177,90,.14);\n  border:1px solid rgba(255,177,90,.35);\n}\n.line{flex:1; height:1px; background: rgba(233,238,245,.16)}\n.panel__title{margin-top:14px; font-size:18px; font-weight:800; position:relative}\n.panel__desc{margin-top:6px; color:var(--muted); position:relative}\n\n.section{padding:54px 0}\n.section--alt{background: rgba(233,238,245,.03); border-top:1px solid var(--line); border-bottom:1px solid var(--line)}\n.section__head{display:flex; align-items:end; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap}\n.section__head h2{margin:0; font-size:26px}\n.section__foot{margin-top:14px}\n.link{color:#c7f2f2; opacity:.95}\n.link:hover{text-decoration:underline}\n\n.muted{color:var(--muted); margin:0}\n\n.grid{\n  display:grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap:14px;\n}\n@media (max-width: 980px){ .grid{grid-template-columns: repeat(2, 1fr)} }\n@media (max-width: 620px){ .grid{grid-template-columns: 1fr} }\n\n.card{\n  border-radius: var(--r);\n  border:1px solid rgba(233,238,245,.12);\n  background: rgba(15,23,32,.70);\n  padding:16px;\n  box-shadow: 0 10px 40px rgba(0,0,0,.28);\n}\n.card__top{display:flex; justify-content:space-between; gap:10px; align-items:baseline}\n.card h3{margin:6px 0 8px; font-size:18px}\n.card p{margin:0; color:var(--muted)}\n.badge{\n  font-size:12px; padding:5px 9px; border-radius:999px;\n  border:1px solid rgba(233,238,245,.14);\n  background: rgba(233,238,245,.04);\n  color: var(--muted);\n  white-space:nowrap;\n}\n.tags{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}\n.tag{\n  font-size:12px; padding:4px 8px; border-radius:999px;\n  border:1px solid rgba(26,166,168,.28);\n  background: rgba(26,166,168,.10);\n  color: #c7f2f2;\n}\n\n.grid--video{grid-template-columns: repeat(2, 1fr)}\n@media (max-width: 900px){ .grid--video{grid-template-columns:1fr} }\n\n.video{\n  padding:0;\n  overflow:hidden;\n}\n.video__thumb{\n  position:relative;\n  display:block;\n  aspect-ratio: 16 / 9;\n  width:100%;\n  background: rgba(233,238,245,.06);\n  border:0;\n  border-bottom:1px solid rgba(233,238,245,.10);\n  padding:0;\n  cursor:pointer;\n}\n.video__thumb:focus-visible{\n  outline: 2px solid rgba(255,177,90,.7);\n  outline-offset: 2px;\n}\n.video__thumb img{\n  width:100%; height:100%;\n  object-fit:cover;\n  display:block;\n  filter:saturate(1.05) contrast(1.05);\n}\n.video__play{\n  position:absolute; inset:0;\n  display:grid; place-items:center;\n  background: radial-gradient(220px 220px at 50% 50%, rgba(0,0,0,.35), rgba(0,0,0,.70));\n}\n.video__play span{\n  display:inline-flex; align-items:center; gap:10px;\n  padding:10px 14px; border-radius:999px;\n  background: rgba(233,238,245,.10);\n  border:1px solid rgba(233,238,245,.20);\n  backdrop-filter: blur(8px);\n}\n.video__body{padding:14px 16px}\n.video__title{margin:0 0 6px; font-size:16px; font-weight:800}\n.note{margin-top:14px; color:var(--muted); font-size:13px}\n\n.about{display:grid; grid-template-columns: 1fr 1fr; gap:14px}\n@media (max-width: 900px){ .about{grid-template-columns:1fr} }\n.about__card{border-radius: var(--r); border:1px solid rgba(233,238,245,.12); background: rgba(15,23,32,.70); padding:18px}\n.about__card--accent{\n  background:\n    radial-gradient(380px 240px at 20% 20%, rgba(26,166,168,.18), transparent 60%),\n    radial-gradient(420px 240px at 80% 70%, rgba(255,177,90,.12), transparent 60%),\n    rgba(15,23,32,.60);\n}\n\n.links{margin:12px 0 0; padding-left:18px}\n.footer{border-top:1px solid var(--line); padding:18px 0; color:var(--muted)}\n.footer__inner{display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap}\n\n/* Blog */\n.search{\n  display:flex; gap:10px; align-items:center;\n  margin: 10px 0 18px;\n}\n.search__label{color:var(--muted); font-size:13px}\n.search__input{\n  width:min(560px, 100%);\n  padding:10px 12px;\n  border-radius: 14px;\n  border:1px solid rgba(233,238,245,.14);\n  background: rgba(233,238,245,.04);\n  color: var(--ink);\n}\n.search__input::placeholder{color: rgba(180,192,207,.75)}\n.search__input:focus{\n  outline: 2px solid rgba(26,166,168,.55);\n  outline-offset: 2px;\n}\n\n.post__head{margin-bottom: 12px}\n.post__meta{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 8px}\n.post__body{\n  padding: 18px 18px;\n}\n.post__body h2{margin-top: 22px}\n.post__body h3{margin-top: 18px}\n.post__body a{color:#c7f2f2; text-decoration:underline}\n.post__nav{\n  display:flex; justify-content:space-between; gap:14px;\n  margin-top: 16px;\n}\n\n\n\n/* =========================\n   Artist theme: POP / HEART\n   ========================= */\n.theme-artist{\n  --bg: #070a12;\n  --bg2:#0a0c16;\n  --ink:#f1f4fb;\n  --muted:#b8c4da;\n  --line: rgba(241,244,251,.10);\n  --teal:#21c1c4;\n  --amber:#ffb15a;\n  --pink:#ff4fa3;\n  --lime:#b8ff6a;\n  --violet:#7a5cff;\n}\n\n/* subtle grain */\n.theme-artist body{}\nbody.theme-artist{\n  background:\n    radial-gradient(850px 560px at 18% -8%, rgba(255,79,163,.18), transparent 60%),\n    radial-gradient(720px 520px at 82% 0%, rgba(33,193,196,.16), transparent 55%),\n    radial-gradient(650px 480px at 70% 78%, rgba(122,92,255,.12), transparent 60%),\n    linear-gradient(180deg, var(--bg), var(--bg2));\n}\nbody.theme-artist::before{\n  content:\"\";\n  position:fixed; inset:0;\n  pointer-events:none;\n  background-image:\n    radial-gradient(circle at 10% 20%, rgba(255,255,255,.05) 0 2px, transparent 3px),\n    radial-gradient(circle at 70% 40%, rgba(255,255,255,.04) 0 1px, transparent 2px),\n    radial-gradient(circle at 35% 75%, rgba(255,255,255,.03) 0 2px, transparent 3px);\n  background-size: 260px 260px, 320px 320px, 420px 420px;\n  opacity:.55;\n  mix-blend-mode: screen;\n}\n\n/* Brand */\n.brand__name{display:flex; flex-direction:column; line-height:1.1}\n.brand__jp{font-weight:900; letter-spacing:.06em}\n.brand__en{font-size:12px; color:var(--muted); opacity:.9; margin-top:2px}\n\n.brand__mark{\n  position:relative;\n  width:36px; height:36px; border-radius:14px;\n  background:\n    radial-gradient(12px 12px at 30% 35%, rgba(255,79,163,.92), transparent 60%),\n    radial-gradient(18px 18px at 72% 66%, rgba(33,193,196,.92), transparent 60%),\n    linear-gradient(135deg, rgba(241,244,251,.10), rgba(241,244,251,.02));\n  border:1px solid rgba(241,244,251,.18);\n  box-shadow: 0 0 0 7px rgba(255,79,163,.05);\n  overflow:hidden;\n}\n.mark__spark{\n  position:absolute;\n  width:10px; height:10px;\n  border-radius: 999px;\n  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.95), rgba(255,255,255,.02));\n  opacity:.65;\n  top:6px; left:8px;\n  filter: blur(.2px);\n  animation: floaty 5.6s ease-in-out infinite;\n}\n.mark__spark--2{top:18px; left:20px; width:7px; height:7px; opacity:.55; animation-duration: 6.9s}\n.mark__spark--3{top:10px; left:24px; width:5px; height:5px; opacity:.45; animation-duration: 7.8s}\n@keyframes floaty{\n  0%,100%{transform: translate(0,0)}\n  50%{transform: translate(2px,-2px)}\n}\n\n/* Hero */\n.hero--artist{position:relative; overflow:hidden}\n.hero__title{margin:14px 0 10px; font-size: clamp(30px, 4.2vw, 52px); line-height:1.12}\n.grad{\n  background: linear-gradient(135deg, rgba(255,79,163,1), rgba(33,193,196,1), rgba(184,255,106,1));\n  -webkit-background-clip:text; background-clip:text;\n  color: transparent;\n  text-shadow: 0 10px 40px rgba(255,79,163,.10);\n}\n.eyebrow--glow{\n  border:1px solid rgba(241,244,251,.14);\n  background: linear-gradient(135deg, rgba(255,79,163,.10), rgba(33,193,196,.10));\n}\n\n.glow--mesh{\n  background:\n    radial-gradient(280px 200px at 25% 30%, rgba(255,79,163,.26), transparent 60%),\n    radial-gradient(260px 220px at 70% 55%, rgba(33,193,196,.20), transparent 60%),\n    radial-gradient(240px 220px at 55% 80%, rgba(184,255,106,.12), transparent 60%);\n  filter: blur(16px);\n}\n\n.panel--artist{\n  background:\n    linear-gradient(180deg, rgba(15,23,32,.82), rgba(15,23,32,.52));\n  border:1px solid rgba(241,244,251,.12);\n}\n.panel--artist::after{opacity:.25}\n\n.panel__mini{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; position:relative}\n.mini{\n  display:flex; gap:10px; align-items:center;\n  padding:10px 12px;\n  border-radius: 14px;\n  border:1px solid rgba(241,244,251,.10);\n  background: rgba(241,244,251,.04);\n}\n.mini__dot{width:10px; height:10px; border-radius:999px; background: rgba(255,79,163,.9); box-shadow:0 0 0 6px rgba(255,79,163,.10)}\n.mini__dot--alt{background: rgba(33,193,196,.9); box-shadow:0 0 0 6px rgba(33,193,196,.10)}\n.mini__label{font-size:12px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase}\n.mini__value{font-weight:800}\n\n.panel__cta{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; position:relative}\n.btn--small{padding:9px 12px; font-size:13px}\n\n.pill{\n  display:inline-flex; align-items:center; gap:8px;\n  padding:8px 12px;\n  border-radius: 999px;\n  border:1px solid rgba(241,244,251,.14);\n  background: rgba(241,244,251,.04);\n  color: var(--ink);\n  font-size:13px;\n}\n.pill:hover{text-decoration:none; background: rgba(241,244,251,.06)}\n.hero__links{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}\n\n/* Marquee */\n.hero__marquee{\n  margin-top: 34px;\n  border-top:1px solid rgba(241,244,251,.08);\n  border-bottom:1px solid rgba(241,244,251,.08);\n  background: rgba(241,244,251,.02);\n}\n.marquee__track{\n  display:flex; gap:28px;\n  padding: 10px 0;\n  white-space: nowrap;\n  opacity:.85;\n  animation: marquee 18s linear infinite;\n}\n.marquee__track span{\n  font-size:12px;\n  letter-spacing:.28em;\n  text-transform: uppercase;\n  color: rgba(241,244,251,.78);\n}\n@keyframes marquee{\n  from{transform: translateX(0)}\n  to{transform: translateX(-50%)}\n}\n\n/* Works layout */\n.works{\n  display:grid;\n  grid-template-columns: 1fr 1fr 1.2fr;\n  gap:14px;\n  margin-bottom: 14px;\n}\n@media (max-width: 980px){\n  .works{grid-template-columns: 1fr 1fr}\n  .work--wide{grid-column: 1 / -1}\n}\n@media (max-width: 620px){\n  .works{grid-template-columns: 1fr}\n}\n.work{position:relative}\n.work__top{display:flex; gap:10px; align-items:center; flex-wrap:wrap}\n.work__actions{display:flex; gap:14px; margin-top:12px; align-items:center; flex-wrap:wrap}\n.badge--accent{\n  border:1px solid rgba(255,79,163,.28);\n  background: rgba(255,79,163,.10);\n  color: rgba(255,206,232,.95);\n}\n.card:hover{\n  transform: translateY(-1px);\n  transition: transform .18s ease, background .18s ease, border-color .18s ease;\n  border-color: rgba(241,244,251,.18);\n}\n\n/* Live timeline */\n.timeline{display:grid; gap:14px}\n.timeline__item{display:grid; grid-template-columns: 120px 1fr; gap:14px; align-items:start}\n@media (max-width: 620px){\n  .timeline__item{grid-template-columns:1fr}\n}\n.timeline__date{\n  font-weight:900;\n  letter-spacing:.12em;\n  color: rgba(241,244,251,.82);\n  padding-top:4px;\n}\n.timeline__body h3{margin:0 0 6px}\n.timeline__meta{margin-top:10px}\n\n/* Profile */\n.profile{display:grid; grid-template-columns: 1.3fr .7fr; gap:14px}\n@media (max-width: 900px){ .profile{grid-template-columns:1fr} }\n.profile__name{font-weight:900; font-size:18px; margin: 6px 0 8px}\n.facts{margin:14px 0 0}\n.facts__row{\n  display:grid; grid-template-columns: 110px 1fr;\n  gap:12px;\n  padding:8px 0;\n  border-top:1px solid rgba(241,244,251,.08);\n}\n.facts__row:last-child{border-bottom:1px solid rgba(241,244,251,.08)}\n.facts dt{color:var(--muted); font-size:12px; letter-spacing:.14em; text-transform:uppercase}\n.facts dd{margin:0; font-weight:700}\n.profile__links{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}\n\n.card--accent{\n  background:\n    radial-gradient(380px 240px at 20% 20%, rgba(255,79,163,.16), transparent 60%),\n    radial-gradient(420px 240px at 80% 70%, rgba(33,193,196,.12), transparent 60%),\n    rgba(15,23,32,.60);\n}\n\n.bullet{margin:10px 0 0; padding-left: 18px}\n.bullet li{margin:6px 0}\n\n\n/* Tools */\n.tools{display:grid; gap:14px}\n.tool h2{margin-top:0}\n.form{display:grid; gap:12px; margin-top: 10px}\n.form label{display:grid; gap:6px; color: rgba(241,244,251,.92)}\n.form input, .form textarea{\n  padding:10px 12px;\n  border-radius: 14px;\n  border:1px solid rgba(241,244,251,.14);\n  background: rgba(241,244,251,.04);\n  color: var(--ink);\n}\n.form textarea{resize: vertical; min-height: 160px}\n.hint{font-size:12px; color: var(--muted)}\n.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}\n.out{margin-top:12px}\n.out__grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px}\n@media (max-width: 900px){ .out__grid{grid-template-columns: 1fr} }\n.tip{margin-top:12px}\n.tips h2{margin-top:0}\n\n/* Video placeholder (no external thumbnail) */\n.video__placeholder{\n  position:relative;\n  width:100%;\n  height:100%;\n  min-height: 240px;\n  background: rgba(241,244,251,.03);\n}\n.video__placeholderGlow{\n  position:absolute; inset:0;\n  background:\n    radial-gradient(220px 180px at 30% 30%, rgba(255,79,163,.22), transparent 60%),\n    radial-gradient(220px 180px at 70% 60%, rgba(33,193,196,.18), transparent 60%),\n    radial-gradient(220px 180px at 50% 85%, rgba(184,255,106,.10), transparent 60%);\n  filter: blur(12px);\n}\n.video__placeholderText{\n  position:absolute; inset:0;\n  display:flex; flex-direction:column;\n  align-items:center; justify-content:center;\n  gap:8px;\n  padding: 18px;\n  text-align:center;\n}\n.video__phTitle{font-weight:900; font-size:16px}\n.video__phSub{\n  display:inline-flex; align-items:center; justify-content:center;\n  padding:10px 14px; border-radius:999px;\n  background: rgba(241,244,251,.10);\n  border:1px solid rgba(241,244,251,.20);\n}\n\n\n/* Contact form helpers */\n.hp{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;}\n.mt-14{margin-top:14px;}\n.mt-18{margin-top:18px;}\n#contactStatus[data-kind=\"success\"]{font-weight:600;}\n#contactStatus[data-kind=\"error\"]{font-weight:600;}\n\n/* Contact */\n.grid--contact{grid-template-columns: 1.2fr .8fr}\n@media (max-width: 900px){ .grid--contact{grid-template-columns:1fr} }\n.contactCard h2{margin-top:0}\n\n/* Contact form (no email exposure) */\n.grid--contact2{grid-template-columns: 1.15fr .85fr}\n@media (max-width: 900px){ .grid--contact2{grid-template-columns:1fr} }\n.status{\n  margin-top: 10px;\n  padding: 10px 12px;\n  border-radius: 14px;\n  border: 1px solid rgba(241,244,251,.14);\n  background: rgba(241,244,251,.04);\n  color: rgba(241,244,251,.92);\n  display:none;\n}\n.status--show{display:block}\n.status--ok{border-color: rgba(33,193,196,.35); background: rgba(33,193,196,.08)}\n.status--ng{border-color: rgba(255,79,163,.35); background: rgba(255,79,163,.08)}\n.hp{position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden}\n.turnstileRow{display:grid; gap:8px}\n\n/* OK/NG cards */\n.grid--okng{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px}\n@media (max-width: 900px){ .grid--okng{grid-template-columns:1fr} }\n.okng{padding:12px; border-radius:16px; border:1px solid rgba(241,244,251,.14); background: rgba(241,244,251,.03)}\n.okng h4{margin:0 0 8px 0}\n.okng--ok{border-color: rgba(33,193,196,.30); background: rgba(33,193,196,.05)}\n.okng--ng{border-color: rgba(255,79,163,.30); background: rgba(255,79,163,.05)}\n\n/* Motion system (emotion, but gentle) */\n@media (prefers-reduced-motion: reduce){\n  *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important}\n}\n\n.reveal{\n  opacity:0;\n  transform: translateY(14px);\n  filter: blur(2px);\n  transition: opacity .7s ease, transform .8s ease, filter .8s ease;\n  will-change: opacity, transform, filter;\n}\n.reveal.is-visible{\n  opacity:1;\n  transform: translateY(0);\n  filter: blur(0);\n}\n\n.reveal--slow{transition-duration: 1.1s}\n.reveal--delay-1{transition-delay: .08s}\n.reveal--delay-2{transition-delay: .16s}\n.reveal--delay-3{transition-delay: .24s}\n\n@keyframes floatSoft{\n  0%,100%{transform: translateY(0)}\n  50%{transform: translateY(-6px)}\n}\n@keyframes shimmer{\n  0%{background-position: 0% 50%}\n  100%{background-position: 100% 50%}\n}\n@keyframes pulseGlow{\n  0%,100%{box-shadow: 0 0 0 rgba(255,255,255,0)}\n  50%{box-shadow: 0 0 26px rgba(241,244,251,.12)}\n}\n\n.hero__title{\n  background: linear-gradient(90deg, rgba(241,244,251,.95), rgba(33,193,196,.9), rgba(255,79,163,.9), rgba(241,244,251,.95));\n  background-size: 220% 220%;\n  -webkit-background-clip: text;\n  background-clip: text;\n  color: transparent;\n  animation: shimmer 6.5s ease-in-out infinite;\n}\n\n.hero__cta{animation: pulseGlow 3.6s ease-in-out infinite}\n.card:hover .card__media img,\n.card:hover img.card__img{\n  transform: scale(1.02);\n}\n.card__media img,\nimg.card__img{\n  transition: transform .55s ease;\n  will-change: transform;\n}\n\n.brand__mark{animation: floatSoft 5.5s ease-in-out infinite}\n.brand__mark .mark__spark{filter: drop-shadow(0 0 10px rgba(33,193,196,.35))}\n\n/* Chapter system */\n.chapterRail{\n  position: fixed;\n  right: 18px;\n  top: 50%;\n  transform: translateY(-50%);\n  z-index: 50;\n  display: grid;\n  gap: 10px;\n  padding: 10px 10px;\n  border-radius: 18px;\n  border: 1px solid rgba(241,244,251,.12);\n  background: rgba(9,12,18,.35);\n  backdrop-filter: blur(10px);\n}\n@media (max-width: 980px){ .chapterRail{display:none} }\n\n.chapterDot{\n  width: 10px; height: 10px;\n  border-radius: 999px;\n  border: 1px solid rgba(241,244,251,.35);\n  background: rgba(241,244,251,.08);\n  cursor: pointer;\n  position: relative;\n}\n.chapterDot.is-active{\n  background: rgba(33,193,196,.85);\n  border-color: rgba(33,193,196,.9);\n  box-shadow: 0 0 18px rgba(33,193,196,.22);\n}\n.chapterDot:hover::after{\n  content: attr(data-label);\n  position: absolute;\n  right: 16px;\n  top: 50%;\n  transform: translateY(-50%);\n  white-space: nowrap;\n  font-size: 12px;\n  padding: 6px 8px;\n  border-radius: 12px;\n  border: 1px solid rgba(241,244,251,.16);\n  background: rgba(9,12,18,.55);\n  color: rgba(241,244,251,.92);\n}\n\n.chapterDivider{\n  height: 1px;\n  width: 100%;\n  margin: 18px 0 4px 0;\n  position: relative;\n  overflow: hidden;\n}\n.chapterDivider::before{\n  content:\"\";\n  position:absolute; inset:0;\n  transform: translateX(-100%);\n  background: linear-gradient(90deg, rgba(241,244,251,0), rgba(241,244,251,.32), rgba(33,193,196,.28), rgba(255,79,163,.24), rgba(241,244,251,0));\n  transition: transform .9s ease;\n}\n.chapterDivider.is-visible::before{ transform: translateX(0%) }\n\n/* subtle chapter tone shift (applies on home body via JS) */\nbody[data-chapter-tone=\"1\"]{ background-image: radial-gradient(900px 500px at 20% 10%, rgba(33,193,196,.12), transparent 60%), radial-gradient(800px 500px at 80% 30%, rgba(255,79,163,.10), transparent 55%); }\nbody[data-chapter-tone=\"2\"]{ background-image: radial-gradient(900px 520px at 70% 20%, rgba(33,193,196,.12), transparent 60%), radial-gradient(900px 560px at 20% 70%, rgba(255,79,163,.10), transparent 55%); }\nbody[data-chapter-tone=\"3\"]{ background-image: radial-gradient(900px 520px at 20% 20%, rgba(33,193,196,.10), transparent 60%), radial-gradient(900px 560px at 75% 70%, rgba(255,79,163,.12), transparent 55%); }\n\n/* High quality image display helpers */\nimg{ image-rendering: auto; }\n.mediaHQ{\n  border-radius: 22px;\n  overflow: hidden;\n  border: 1px solid rgba(241,244,251,.12);\n  background: rgba(241,244,251,.03);\n}\n.mediaHQ img{\n  display:block;\n  width:100%;\n  height:auto;\n}\n\n/* Tools: drag & drop import */\n.import{margin:14px 0 18px}\n.import__file{display:block;margin:8px 0 10px}\n.dropzone{\n  border:2px dashed rgba(233,238,245,.35);\n  border-radius:14px;\n  padding:14px 14px;\n  background:rgba(0,0,0,.14);\n  cursor:pointer;\n  user-select:none;\n}\n.dropzone code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace}\n.dropzone--hover{border-color:rgba(26,166,168,.9); background:rgba(26,166,168,.12)}\n.dropzone--ok{border-color:rgba(255,191,90,.9)}\n\n\n/* --- Added in 2026-01: Tools pack + improved cards --- */\n.hidden{display:none !important}\n\n.card__link{display:block; color:inherit; text-decoration:none}\n.card__link:hover h3{ text-decoration: underline }\n\n.card--post .post__meta{margin-bottom:8px}\n.card--post .badge{display:inline-flex; margin-right:8px}\n\n.card--video{padding:0; overflow:hidden}\n.card--video .card__body{padding:14px 16px}\n.video__frame{\n  aspect-ratio: 16 / 9;\n  width:100%;\n  background: rgba(233,238,245,.06);\n  border-bottom:1px solid rgba(233,238,245,.10);\n  display:block;\n}\n.video__frame iframe,\n.video__frame video{\n  width:100%;\n  height:100%;\n  border:0;\n  display:block;\n  background: #000;\n}\n\n.packActions{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px}\n\n.iframeWrap{\n  aspect-ratio: 4 / 5;\n  width:100%;\n  border-radius: var(--r);\n  overflow:hidden;\n  border:1px solid rgba(233,238,245,.12);\n  background: rgba(15,23,32,.55);\n}\n.iframeWrap iframe{width:100%; height:100%; border:0; display:block}\n\n\n/* --- Urban Night: calm motion --- */\nbody.theme-artist{\n  background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);\n  position: relative;\n  isolation: isolate;\n}\nbody.theme-artist::before{\n  content:\"\";\n  position: fixed;\n  inset:-18%;\n  z-index:-2;\n  pointer-events:none;\n  background:\n    radial-gradient(1200px 800px at 12% 8%, rgba(184,135,255,.18), transparent 55%),\n    radial-gradient(1000px 700px at 88% 18%, rgba(109,247,255,.14), transparent 55%),\n    radial-gradient(1200px 900px at 50% 110%, rgba(255,177,90,.10), transparent 62%),\n    linear-gradient(180deg, #050712 0%, #06081a 40%, #070a18 100%);\n  filter: saturate(1.05);\n  animation: nightDrift 18s ease-in-out infinite alternate;\n}\nbody.theme-artist::after{\n  content:\"\";\n  position: fixed;\n  inset:0;\n  z-index:-1;\n  pointer-events:none;\n  opacity:.55;\n  background-image:\n    radial-gradient(1px 1px at 20px 40px, rgba(234,240,255,.18) 50%, transparent 52%),\n    radial-gradient(1px 1px at 180px 120px, rgba(234,240,255,.10) 50%, transparent 52%),\n    radial-gradient(1px 1px at 90px 210px, rgba(109,247,255,.12) 50%, transparent 52%),\n    linear-gradient(to top, rgba(6,8,26,.0) 0%, rgba(6,8,26,.10) 40%, rgba(6,8,26,.0) 100%);\n  background-size: 260px 260px, 380px 380px, 520px 520px, 100% 100%;\n  animation: nightStars 10s linear infinite;\n}\n\n/* Subtle neon line near bottom */\n.section::before{\n  content:\"\";\n  position:absolute;\n  left:0; right:0;\n  bottom:-1px;\n  height:1px;\n  background: linear-gradient(90deg, transparent, rgba(109,247,255,.38), rgba(184,135,255,.24), transparent);\n  opacity:.55;\n}\n\n/* Text shimmer for key accents */\n.grad{\n  background: linear-gradient(90deg, rgba(109,247,255,.95), rgba(184,135,255,.95), rgba(255,177,90,.85));\n  -webkit-background-clip:text;\n  background-clip:text;\n  color: transparent;\n  background-size: 220% 100%;\n  animation: nightShimmer 6s ease-in-out infinite;\n}\n\n/* Compact header */\n.top--compact{\n  padding-top: 10px;\n  padding-bottom: 10px;\n  border-bottom: 1px solid rgba(234,240,255,.08);\n  background: rgba(5,7,18,.35);\n  backdrop-filter: blur(10px);\n}\n.brand--mini .brand__en{display:none}\n.nav--mini a{\n  opacity:.92;\n  letter-spacing:.02em;\n}\n.nav--mini a:hover{opacity:1}\n.footer--compact{\n  padding-top: 14px;\n  padding-bottom: 8px;\n}\n.footer__links{display:flex; gap:12px; align-items:center}\n\n/* Home layout */\n.section--hero{padding-top: 34px}\n.hero--mini{padding: 12px 0 18px}\n.grid--home{\n  display:grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n  gap: 14px;\n}\n@media (max-width: 760px){\n  .grid--home{grid-template-columns: 1fr}\n}\n.card--home{min-height: 210px}\n.kicker{\n  font-size: 12px;\n  letter-spacing: .16em;\n  text-transform: uppercase;\n  color: rgba(167,179,199,.85);\n}\n.miniList{\n  margin-top: 10px;\n}\n.miniList a{\n  display:block;\n  padding: 10px 12px;\n  border-radius: 14px;\n  border: 1px solid rgba(234,240,255,.10);\n  background: rgba(0,0,0,.16);\n  text-decoration:none;\n}\n.miniList a:hover{border-color: rgba(109,247,255,.30)}\n.miniList .miniTitle{font-weight: 700}\n.miniList .miniMeta{margin-top: 4px; font-size: 12px; color: rgba(167,179,199,.92)}\n.miniList .miniEmpty{padding: 10px 12px; color: rgba(167,179,199,.92)}\n\n.row--end{justify-content: flex-end}\n.row--gap-sm{gap: 10px}\n.small{font-size: 12px}\n.u-mt-sm{margin-top: 12px}\n.is-hidden{display:none !important}\n\n/* Motion accessibility */\n@media (prefers-reduced-motion: reduce){\n  body.theme-artist::before,\n  body.theme-artist::after,\n  .grad{animation:none}\n  *{scroll-behavior:auto}\n}\n\n/* Keyframes */\n@keyframes nightDrift{\n  0%{transform: translate3d(0,0,0) scale(1)}\n  100%{transform: translate3d(-2.2%, 1.6%, 0) scale(1.02)}\n}\n@keyframes nightStars{\n  0%{background-position: 0 0, 0 0, 0 0, 0 0}\n  100%{background-position: 0 260px, 0 380px, 0 520px, 0 0}\n}\n@keyframes nightShimmer{\n  0%{background-position: 0% 50%}\n  50%{background-position: 100% 50%}\n  100%{background-position: 0% 50%}\n}\n\n.miniThumb{width:100%; height:auto; border-radius: 14px; display:block; margin-bottom:10px; border:1px solid rgba(234,240,255,.10)}\n\n\n/* Tools gate */\nbody.tools-locked .tools { display: none !important; }\nbody.tools-locked #toolsUnlock { display: block; }\n#toolsUnlock { display: none; }\n#toolsUnlock .row { display:flex; gap: .75rem; align-items: center; flex-wrap: wrap; }\n#toolsUnlock .input { flex: 1 1 220px; }\n", "sitemap.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <url>\n    <loc>https://musasci.github.io/honnki/</loc>\n    <lastmod>2026-01-04</lastmod>\n  </url>\n  <url>\n    <loc>https://musasci.github.io/honnki/blog.html</loc>\n    <lastmod>2026-01-04</lastmod>\n  </url>\n  <url>\n    <loc>https://musasci.github.io/honnki/videos.html</loc>\n    <lastmod>2026-01-04</lastmod>\n  </url>\n  <url>\n    <loc>https://musasci.github.io/honnki/contact.html</loc>\n    <lastmod>2026-01-04</lastmod>\n  </url>\n  <url>\n    <loc>https://musasci.github.io/honnki/privacy.html</loc>\n    <lastmod>2026-01-04</lastmod>\n  </url>\n</urlset>\n", "videos.html": "<!doctype html>\n<html lang=\"ja\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content\" />\n  <meta name=\"referrer\" content=\"strict-origin-when-cross-origin\" />\n  <meta name=\"description\" content=\"動画。夜の断片。\" />\n  <meta name=\"robots\" content=\"index,follow,max-image-preview:large\" />\n  <title>Videos | 翠山海翔</title>\n  <link rel=\"canonical\" href=\"https://musasci.github.io/honnki/videos.html\" />\n  <link rel=\"stylesheet\" href=\"site.css\" />\n  <script src=\"app.js\" defer></script>\n</head>\n<body data-page=\"videos\" class=\"theme-artist\">\n  <a class=\"skip\" href=\"#main\">本文へスキップ</a>\n  <header class=\"top top--compact\">\n    <div class=\"wrap top__inner\">\n      <a class=\"brand brand--mini\" href=\"index.html\" aria-label=\"ホーム\">\n        <span class=\"brand__mark\" aria-hidden=\"true\">\n          <span class=\"mark__spark\"></span>\n          <span class=\"mark__spark mark__spark--2\"></span>\n          <span class=\"mark__spark mark__spark--3\"></span>\n        </span>\n        <span class=\"brand__name\">\n          <span class=\"brand__jp\">翠山海翔</span>\n          <span class=\"brand__en\">Kaito Midoriyama</span>\n        </span>\n      </a>\n\n      <nav class=\"nav nav--mini\" aria-label=\"グローバルナビ\">\n        <a href=\"blog.html\">記事</a>\n        <a href=\"videos.html\">動画</a>\n        <a href=\"contact.html\">連絡</a>\n      </nav>\n    </div>\n  </header>\n\n  <main id=\"main\" class=\"section\">\n    <div class=\"wrap\">\n      <div class=\"section__head\">\n        <h1 class=\"hero__title\" data-reveal=\"slow d1\">動画</h1>\n      </div>\n\n      <div id=\"videosGrid\" class=\"grid grid--video\" aria-live=\"polite\" aria-busy=\"true\"></div>\n    </div>\n  </main>\n  <footer class=\"footer footer--compact\">\n    <div class=\"wrap footer__inner\">\n      <small>© <span data-year></span> 翠山海翔</small>\n      <span class=\"footer__links\">\n        <a href=\"privacy.html\">プライバシー</a>\n      </span>\n    </div>\n  </footer>\n</body>\n</html>\n", "videos.json": "[]"};
+  const BASE_POSTS_MD = {"security-basics": "# 個人サイトの最小セキュリティ運用メモ\n\n「万全」を保証できる構成はありませんが、個人サイトでは **攻撃面を減らす** のが効果的です。\n\n## まず効く対策\n\n- フォーム/コメント欄を置かない（入力データの保管が発生しない）\n- 外部埋め込みを最小化（必要ならクリックで読み込み）\n- 画像のEXIFを削除（位置情報・撮影日時が残ることがあります）\n- 公開してはいけない情報（住所・電話・勤務先の詳細）を載せない\n- リポジトリに APIキーや限定URLを入れない\n\n## このテンプレートの設計\n\n- 記事は Markdown で作成し、ブラウザ側で **安全側に変換**（生のHTMLは実行しない）\n- Cloudflare Pages を使う場合は `_headers` で CSP 等を設定可能\n- YouTube は `youtube-nocookie.com` を使い、クリックされるまで iframe を生成しません\n\n> 運用（載せる情報の選別）が一番重要です。\n", "welcome": "# 最初の記事：このサイトの使い方（ブログ内製）\n\nこのブログは「サイト内で完結」する前提で作られています。  \n記事は **Markdown（.md）** を追加し、一覧用の **posts.json** に追記するだけです。\n\n## 記事を追加する手順（最短）\n\n- `content/posts.json` にメタデータ（slug, title, date...）を追加\n- `content/posts/<slug>.md` を新規作成\n- GitHub に push すると公開環境に反映\n\n> slug は URL で使う識別子です（例：`my-first-post`）。日本語より英数字が安全です。\n\n## 使えるMarkdown（最低限）\n\n- 見出し：`#` / `##` / `###`\n- 箇条書き：`- item`\n- 引用：`> quote`\n- コード：``` で囲む\n- リンク：`[text](https://example.com)`（https のみ）\n\n```text\n例：コードブロック\nここにメモやコマンドを書けます\n```\n"};
+
+  const STORAGE = {
+    posts: "honnki_posts_v1",
+    videos: "honnki_videos_v1",
+    formUrl: "honnki_formurl_v1",
+    postsMd: "honnki_postsmd_v1",
+  };
+
+  const state = {
+    posts: [],
+    videos: [],
+    formUrl: "",
+    postsMd: {}, // slug -> md
+    ytFile: null,
+    ytFileName: "",
+  };
+
+  function nowDateStr() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function slugFromNow() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    const ss = String(d.getSeconds()).padStart(2,"0");
+    const rnd = Math.random().toString(16).slice(2,6);
+    return `p${y}${m}${day}-${hh}${mm}${ss}-${rnd}`;
+  }
+
+  function excerptFromBody(body) {
+    const t = String(body||"").replace(//g,"").trim();
+    const first = t.split("
+").map(s=>s.trim()).filter(Boolean)[0] || "";
+    const clean = first.replace(/^#+\s*/,"").replace(/[`*_>]/g,"").trim();
+    return clean.slice(0, 80);
+  }
+
+  function readMinutesFromBody(body) {
+    const t = String(body||"").replace(/\s/g,"");
+    const chars = t.length;
+    // 目安: 日本語600文字/分
+    return Math.max(1, Math.round(chars / 600));
+  }
+
+  function saveLocal() {
+    localStorage.setItem(STORAGE.posts, JSON.stringify(state.posts));
+    localStorage.setItem(STORAGE.videos, JSON.stringify(state.videos));
+    localStorage.setItem(STORAGE.formUrl, state.formUrl || "");
+    localStorage.setItem(STORAGE.postsMd, JSON.stringify(state.postsMd));
+  }
+
+  function loadLocal() {
+    try {
+      const p = JSON.parse(localStorage.getItem(STORAGE.posts) || "null");
+      const v = JSON.parse(localStorage.getItem(STORAGE.videos) || "null");
+      const m = JSON.parse(localStorage.getItem(STORAGE.postsMd) || "null");
+      const f = localStorage.getItem(STORAGE.formUrl);
+      if (Array.isArray(p) && p.length) state.posts = p;
+      if (Array.isArray(v)) state.videos = v;
+      if (m && typeof m === "object") state.postsMd = m;
+      if (typeof f === "string") state.formUrl = f.trim();
+    } catch {}
+  }
+
+  function initFromBaseIfEmpty() {
+    if (!state.posts.length) {
+      try { state.posts = JSON.parse(BASE_FILES["posts.json"] || "[]"); } catch { state.posts = []; }
+    }
+    if (!state.videos.length) {
+      try { state.videos = JSON.parse(BASE_FILES["videos.json"] || "[]"); } catch { state.videos = []; }
+    }
+    if (!Object.keys(state.postsMd).length) {
+      state.postsMd = Object.assign({}, BASE_POSTS_MD);
+    }
+    if (!state.formUrl) {
+      const t = (BASE_FILES["contact_form_url.txt"] || "").trim();
+      state.formUrl = (t && t !== "PASTE_GOOGLE_FORM_EMBED_URL_HERE") ? t : "";
+    }
+  }
+
+  function setStatus(el, msg, kind="") {
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+
+  // ZIP (store, no compression)
+  function textToU8(s) { return new TextEncoder().encode(String(s)); }
+  function u8Concat(chunks) {
+    let total = 0;
+    for (const c of chunks) total += c.length;
+    const out = new Uint8Array(total);
+    let o = 0;
+    for (const c of chunks) { out.set(c, o); o += c.length; }
+    return out;
+  }
+  function u32LE(n) { const b = new Uint8Array(4); b[0]=n&255; b[1]=(n>>>8)&255; b[2]=(n>>>16)&255; b[3]=(n>>>24)&255; return b; }
+  function u16LE(n) { const b = new Uint8Array(2); b[0]=n&255; b[1]=(n>>>8)&255; return b; }
+
+  function crc32(bytes) {
+    let c = 0xffffffff;
+    for (let i=0;i<bytes.length;i++) {
+      c ^= bytes[i];
+      for (let k=0;k<8;k++) c = (c>>>1) ^ (0xedb88320 & -(c & 1));
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  function buildZipStore(entries) {
+    // entries: {name, data}
+    let offset = 0;
+    const localParts = [];
+    const centralParts = [];
+    for (const e of entries) {
+      const nameU8 = textToU8(e.name);
+      const data = e.data;
+      const crc = crc32(data);
+      const compSize = data.length;
+      const uncompSize = data.length;
+
+      const localHeader = u8Concat([
+        u32LE(0x04034b50),
+        u16LE(20), u16LE(0), u16LE(0),
+        u16LE(0), u16LE(0),
+        u32LE(crc),
+        u32LE(compSize),
+        u32LE(uncompSize),
+        u16LE(nameU8.length),
+        u16LE(0),
+        nameU8
+      ]);
+      localParts.push(localHeader, data);
+
+      const centralHeader = u8Concat([
+        u32LE(0x02014b50),
+        u16LE(20), u16LE(20),
+        u16LE(0), u16LE(0),
+        u16LE(0), u16LE(0),
+        u32LE(crc),
+        u32LE(compSize),
+        u32LE(uncompSize),
+        u16LE(nameU8.length),
+        u16LE(0), u16LE(0),
+        u16LE(0), u16LE(0),
+        u32LE(0),
+        u32LE(offset),
+        nameU8
+      ]);
+      centralParts.push(centralHeader);
+      offset += localHeader.length + data.length;
+    }
+
+    const centralStart = offset;
+    const centralDir = u8Concat(centralParts);
+    offset += centralDir.length;
+
+    const end = u8Concat([
+      u32LE(0x06054b50),
+      u16LE(0), u16LE(0),
+      u16LE(entries.length),
+      u16LE(entries.length),
+      u32LE(centralDir.length),
+      u32LE(centralStart),
+      u16LE(0)
+    ]);
+
+    return u8Concat([...localParts, centralDir, end]);
+  }
+
+  function downloadBytes(filename, bytes) {
+    const blob = new Blob([bytes], { type: "application/zip" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  function buildSiteEntries() {
+    // 更新に必要な最小ファイルだけを書き出します（安全・簡単）
+    const entries = [];
+
+    // posts md
+    for (const p of state.posts) {
+      const slug = p.slug;
+      const mdName = `post-${slug}.md`;
+      const md = state.postsMd[slug] || `# ${p.title||"Post"}\n\n`;
+      entries.push({ name: mdName, data: textToU8(md.endsWith("\n") ? md : md + "\n") });
+    }
+
+    entries.push({ name: "posts.json", data: textToU8(JSON.stringify(state.posts, null, 2) + "\n") });
+    entries.push({ name: "videos.json", data: textToU8(JSON.stringify(state.videos, null, 2) + "\n") });
+    entries.push({ name: "contact_form_url.txt", data: textToU8((state.formUrl || "PASTE_GOOGLE_FORM_EMBED_URL_HERE") + "\n") });
+    return entries;
+  }
+
+  function refreshPostSelect() {
+    const sel = $("postSelect");
+    sel.innerHTML = "";
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "（選択）";
+    sel.appendChild(opt0);
+
+    for (const p of state.posts) {
+      const opt = document.createElement("option");
+      opt.value = p.slug;
+      opt.textContent = `${p.date}  ${p.title}`;
+      sel.appendChild(opt);
+    }
+  }
+
+  // YouTube helper
+  function setYtFile(file) {
+    state.ytFile = file || null;
+    state.ytFileName = file ? file.name : "";
+    $("ytFileLabel").textContent = file ? `${file.name}  (${Math.round(file.size/1024/1024*10)/10}MB)` : "未選択";
+    setStatus($("ytStatus"), file ? "準備OK" : "", file ? "ok" : "");
+  }
+
+  function openYouTubeUpload() {
+    window.open("https://www.youtube.com/upload", "_blank", "noopener");
+    setStatus($("ytStatus"), "YouTubeを開きました。", "ok");
+  }
+
+  // Blog
+  function upsertPostFromInputs() {
+    const title = String($("blogTitle").value || "").trim();
+    const body = String($("blogBody").value || "").trim();
+    if (!title || !body) {
+      setStatus($("blogStatus"), "タイトルと本文を入力してください。", "ng");
+      return null;
+    }
+
+    const editingSlug = $("postSelect").value || "";
+    const slug = editingSlug || slugFromNow();
+    const date = nowDateStr();
+    const excerpt = excerptFromBody(body);
+    const readMinutes = readMinutesFromBody(body);
+
+    const postObj = { slug, title, date, readMinutes, excerpt, tags: [] };
+    const md = `# ${title}
+
+${body}
+`;
+    state.postsMd[slug] = md;
+
+    const idx = state.posts.findIndex(p => p.slug === slug);
+    if (idx >= 0) state.posts[idx] = postObj;
+    else state.posts.unshift(postObj);
+
+    state.posts.sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+    saveLocal();
+    refreshPostSelect();
+    setStatus($("blogStatus"), "保存しました。", "ok");
+    return slug;
+  }
+
+  function loadPostToInputs() {
+    const slug = $("postSelect").value;
+    if (!slug) return;
+    const p = state.posts.find(x=>x.slug===slug);
+    if (!p) return;
+    $("blogTitle").value = p.title || "";
+    const md = state.postsMd[slug] || "";
+    const lines = md.replace(//g,"").split("
+");
+    if (lines[0].startsWith("#")) {
+      const rest = lines.slice(1);
+      if (rest[0] === "") rest.shift();
+      $("blogBody").value = rest.join("
+").trim();
+    } else {
+      $("blogBody").value = md.trim();
+    }
+    setStatus($("blogStatus"), "読み込みました。", "ok");
+  }
+
+  function deleteSelectedPost() {
+    const slug = $("postSelect").value;
+    if (!slug) return;
+    if (!confirm("この記事を削除しますか？")) return;
+    state.posts = state.posts.filter(p=>p.slug!==slug);
+    delete state.postsMd[slug];
+    saveLocal();
+    refreshPostSelect();
+    $("postSelect").value = "";
+    setStatus($("blogStatus"), "削除しました。", "ok");
+  }
+
+  // Videos
+  function addVideoFromInputs(andExport=false) {
+    const url = String($("ytUrl").value || "").trim();
+    if (!url) {
+      setStatus($("videoStatus"), "URLを貼ってください。", "ng");
+      return;
+    }
+    let title = "";
+    if (state.ytFileName) title = state.ytFileName.replace(/\.[a-z0-9]+$/i,"");
+    if (!title) title = "Video";
+    const v = { title, date: nowDateStr(), url };
+    state.videos.unshift(v);
+    saveLocal();
+    setStatus($("videoStatus"), "追加しました。", "ok");
+    if (andExport) exportZip();
+  }
+
+  // Contact
+  function saveFormUrl() {
+    state.formUrl = String($("formUrl").value || "").trim();
+    saveLocal();
+    setStatus($("formStatus"), "保存しました。", "ok");
+  }
+
+  // Export
+  function exportZip() {
+    try {
+      const entries = buildSiteEntries();
+      const zipBytes = buildZipStore(entries);
+      const fn = `honnki_update_${nowDateStr().replaceAll("-","")}.zip`;
+      downloadBytes(fn, zipBytes);
+      setStatus($("exportStatus"), "書き出しました。", "ok");
+    } catch (e) {
+      console.error(e);
+      setStatus($("exportStatus"), "失敗しました。", "ng");
+    }
+  }
+
+  function wireYouTubeDrop() {
+    const dz = $("ytDrop");
+    const fileInput = $("ytFile");
+
+    dz.addEventListener("dragover", (e)=>{ e.preventDefault(); dz.classList.add("drag"); });
+    dz.addEventListener("dragleave", ()=>dz.classList.remove("drag"));
+    dz.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      dz.classList.remove("drag");
+      const f = e.dataTransfer?.files?.[0];
+      if (f) setYtFile(f);
+    });
+
+    $("ytPick").addEventListener("click", ()=> fileInput.click());
+    fileInput.addEventListener("change", ()=> {
+      const f = fileInput.files && fileInput.files[0];
+      if (f) setYtFile(f);
+    });
+
+    $("ytOpen").addEventListener("click", openYouTubeUpload);
+    $("addVideo").addEventListener("click", ()=> addVideoFromInputs(false));
+    $("addVideoAndExport").addEventListener("click", ()=> addVideoFromInputs(true));
+  }
+
+  function init() {
+    loadLocal();
+    initFromBaseIfEmpty();
+    $("formUrl").value = state.formUrl || "";
+    refreshPostSelect();
+    setYtFile(null);
+    wireYouTubeDrop();
+
+    $("blogSaveOnly").addEventListener("click", upsertPostFromInputs);
+    $("blogPublish").addEventListener("click", ()=> {
+      const slug = upsertPostFromInputs();
+      if (slug) exportZip();
+    });
+    $("loadPost").addEventListener("click", loadPostToInputs);
+    $("deletePost").addEventListener("click", deleteSelectedPost);
+    $("saveForm").addEventListener("click", saveFormUrl);
+    $("exportZip").addEventListener("click", exportZip);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
