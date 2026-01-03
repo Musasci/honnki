@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://musasci.github.io/honnki/sitemap.xml
+Disallow: /post-
