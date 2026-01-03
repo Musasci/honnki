@@ -775,3 +775,43 @@ img{ image-rendering: auto; }
 .dropzone code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
 .dropzone--hover{border-color:rgba(26,166,168,.9); background:rgba(26,166,168,.12)}
 .dropzone--ok{border-color:rgba(255,191,90,.9)}
+
+
+/* --- Added in 2026-01: Tools pack + improved cards --- */
+.hidden{display:none !important}
+
+.card__link{display:block; color:inherit; text-decoration:none}
+.card__link:hover h3{ text-decoration: underline }
+
+.card--post .post__meta{margin-bottom:8px}
+.card--post .badge{display:inline-flex; margin-right:8px}
+
+.card--video{padding:0; overflow:hidden}
+.card--video .card__body{padding:14px 16px}
+.video__frame{
+  aspect-ratio: 16 / 9;
+  width:100%;
+  background: rgba(233,238,245,.06);
+  border-bottom:1px solid rgba(233,238,245,.10);
+  display:block;
+}
+.video__frame iframe,
+.video__frame video{
+  width:100%;
+  height:100%;
+  border:0;
+  display:block;
+  background: #000;
+}
+
+.packActions{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px}
+
+.iframeWrap{
+  aspect-ratio: 4 / 5;
+  width:100%;
+  border-radius: var(--r);
+  overflow:hidden;
+  border:1px solid rgba(233,238,245,.12);
+  background: rgba(15,23,32,.55);
+}
+.iframeWrap iframe{width:100%; height:100%; border:0; display:block}

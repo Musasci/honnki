@@ -3,16 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="連絡ページ（GitHub Pages対応・設定ほぼゼロ）。" />
-  <title>Contact | 翠山海翔</title>
-
-  
-  <link rel="canonical" href="https://musasci.github.io/honnki/contact.html" /><meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; form-action 'self'; upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://docs.google.com; form-action 'self'; upgrade-insecure-requests" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="description" content="お問い合わせ（メールまたはフォーム）。" />
+  <title>Contact | 翠山海翔</title>
+  <link rel="canonical" href="https://musasci.github.io/honnki/contact.html" />
   <link rel="stylesheet" href="site.css" />
   <script src="app.js" defer></script>
-
-  <!-- 迷惑収集リスクを下げる（完全な防御ではありません） -->
   <meta name="robots" content="noindex,nofollow" />
 </head>
 
@@ -47,33 +44,37 @@
     <div class="wrap">
       <div class="section__head">
         <h1 class="hero__title" data-reveal="slow d1">Contact</h1>
-        <p class="muted" data-reveal="d2">
-          GitHub Pagesだけで動く「メール起動」方式です（サイト側で個人情報を保存しません）。
-        </p>
+        <p class="muted" id="contactModeNote" data-reveal="d2">連絡方法：読み込み中…</p>
       </div>
 
       <section class="card" data-reveal="d2">
-        <h2>メールで連絡する</h2>
+        <h2>メッセージを送る</h2>
         <p class="muted">
-          ボタンを押すと、お使いのメールアプリが開きます。宛先・件名・本文は <code>site.json</code> で設定できます。
+          返信が必要な場合は、本文に<strong>返信先</strong>（メールアドレス等）をご記入ください。
         </p>
 
         <div class="row">
-          <a id="contactMailBtn" class="btn hero__cta" href="#" disabled>メールを作成</a>
-          <a class="btn btn--ghost" href="tools.html">Toolsで設定する</a>
+          <a id="contactMailBtn" class="btn" href="tools.html">読み込み中…</a>
+          <button id="contactCopyBtn" class="btn btn--ghost" type="button">メールアドレスをコピー</button>
         </div>
 
-        <p id="contactStatus" class="muted" style="margin-top:12px"></p>
-
-        <hr class="line" />
-
-        <h3>セキュリティのおすすめ</h3>
-        <ul class="bullet">
-          <li>公開用の連絡先は「専用の別メール（エイリアス）」にする（本アドレスを守る）</li>
-          <li>受信側でフィルタ（件名/ドメイン）と迷惑メール対策を設定</li>
-          <li>住所・勤務先の詳細・行動パターンなど、特定につながる情報は載せない</li>
-        </ul>
+        <div class="out">
+          <h3>テンプレ（コピーして使えます）</h3>
+          <pre id="contactTpl" class="pre"></pre>
+        </div>
       </section>
+
+      <section id="contactFormWrap" class="card" data-reveal="d2" style="margin-top:14px; display:none">
+        <h2>フォーム</h2>
+        <p class="muted">送信内容はフォーム提供元（Google）に渡ります。個人情報は必要最小限で。</p>
+        <div class="iframeWrap">
+          <iframe id="contactFormFrame" title="Contact form" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
+      </section>
+
+      <p class="note" data-reveal="d2">
+        セキュリティのため、<strong>機密情報（住所・医療情報・パスワードなど）</strong>は送らないでください。
+      </p>
     </div>
   </main>
 

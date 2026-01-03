@@ -1,14 +1,17 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="初心者向け：ブログ記事追加とYouTube追加を簡単にするツール。" />
-  <title>Tools | 翠山海翔</title>
-
-  <link rel="canonical" href="https://musasci.github.io/honnki/tools.html" /><meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; font-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://www.youtube-nocookie.com https://challenges.cloudflare.com; form-action 'self'; upgrade-insecure-requests" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://docs.google.com; form-action 'self'; upgrade-insecure-requests" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="description" content="初心者向け：ブログ記事追加と動画追加を簡単にするツール（GitHub Pages用）。" />
+  <title>Tools | 翠山海翔</title>
+  <link rel="canonical" href="https://musasci.github.io/honnki/tools.html" />
   <link rel="stylesheet" href="site.css" />
   <script src="app.js" defer></script>
+
+  <!-- オーナー用：検索に載せない（公開しても、編集権限はGitHubリポジトリ側で守られます） -->
   <meta name="robots" content="noindex,nofollow" />
 </head>
 
@@ -32,8 +35,8 @@
       <nav class="nav" aria-label="グローバルナビ">
         <a href="index.html">Home</a>
         <a href="blog.html">Blog</a>
-        <a href="videos.html">Videos</a>        <a href="contact.html">Contact</a>
-
+        <a href="videos.html">Videos</a>
+        <a href="contact.html">Contact</a>
         <a class="nav__cta" href="privacy.html">Privacy</a>
       </nav>
     </div>
@@ -43,188 +46,223 @@
     <div class="wrap">
       <div class="section__head">
         <h1 class="hero__title" data-reveal="slow d1">Tools</h1>
-        <p data-reveal="d2"  class="muted">初心者向け：コピー＆ダウンロードで更新できます（サイト側で個人情報を保存しません）。</p>
+        <p class="muted" data-reveal="d2">
+          ここは<strong>オーナー向け</strong>の更新ツールです。作ったファイルをGitHubにアップロードするまで、サイトは変わりません。
+        </p>
       </div>
 
       <div class="tools">
-        <section class="card tool" data-reveal="d2">
-          <h2>① ブログ記事 追加ツール</h2>
-          <p class="muted">入力 → Markdownファイル（.md）と、posts.json更新版を生成します。</p>
 
-          
-          <div class="import">
-            <p class="hint">既存の <code>posts.json</code> を読み込む（ドラッグ＆ドロップ可）</p>
-            <input id="t_postsFile" class="import__file" type="file" accept=".json,application/json" />
-            <div id="t_postsDrop" class="dropzone">ここに <code>posts.json</code> をドロップ（クリックでも選べます）</div>
-            <div id="t_postsStatus" class="hint"></div>
+        <!-- 0) Update pack -->
+        <section class="card tool" data-reveal="d2">
+          <h2>0) 更新パック（おすすめ）</h2>
+          <p class="muted">
+            <strong>ZIPを書き出して展開</strong> → GitHubの「Upload files」でドラッグするだけ。
+            <br/>このパックは <code>posts.json / videos.json / site.json</code> と、あなたが追加・編集したファイルだけを含みます（既存ファイルは削除されません）。
+          </p>
+
+          <div class="packActions">
+            <button class="btn" id="t_loadFromSite" type="button">公開中サイトから読み込み</button>
+            <button class="btn btn--ghost" id="t_downloadPack" type="button">更新パック（ZIP）を書き出す</button>
+            <button class="btn btn--ghost" id="t_writeFolder" type="button">フォルダへ書き出し（Chrome/Edge）</button>
           </div>
-<div class="form">
+
+          <div class="import">
+            <p class="hint">
+              （任意）手元のファイルを読み込む：<code>posts.json / videos.json / site.json / post-*.md / video-*.mp4 / img-*.png</code> など
+            </p>
+
+            <div id="t_packImportZone" class="dropzone" role="button" tabindex="0" aria-label="ファイル読み込み">
+              <input class="hp" type="file" multiple
+                     accept=".json,application/json,.md,text/markdown,image/*,video/*" />
+              ここにファイルをドロップ（クリックでも選べます）
+            </div>
+          </div>
+
+          <div id="t_packStatus" class="status"></div>
+
+          <div class="out out__grid">
+            <div class="out__box">
+              <h3>個別ダウンロード</h3>
+              <p class="hint">必要なものだけ書き出したい場合。</p>
+              <div class="row">
+                <button class="btn btn--ghost" id="t_downloadPosts" type="button">posts.json</button>
+                <button class="btn btn--ghost" id="t_downloadVideos" type="button">videos.json</button>
+                <button class="btn btn--ghost" id="t_downloadSite" type="button">site.json</button>
+              </div>
+            </div>
+
+            <div class="out__box">
+              <h3>運用メモ</h3>
+              <ul class="muted">
+                <li>GitHubで上書きアップロードしてOK（古いファイルは消えません）。</li>
+                <li>動画ファイルはサイズが大きい場合があります。必要ならYouTube運用が軽いです。</li>
+                <li>Toolsページ自体は公開されますが、<strong>GitHubの権限がない人はサイトを更新できません</strong>。</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1) Blog -->
+        <section class="card tool" data-reveal="d2">
+          <h2>1) ブログ</h2>
+          <p class="muted">記事を新規作成・編集して、<code>post-*.md</code> と <code>posts.json</code> を更新します。</p>
+
+          <div class="form">
+            <label>既存記事を選ぶ（編集）
+              <select id="t_postSelect">
+                <option value="">（読み込み中…）</option>
+              </select>
+              <span class="hint">「公開中サイトから読み込み」で一覧が入ります。</span>
+            </label>
+
             <label>記事タイトル
               <input id="t_postTitle" type="text" placeholder="例：新曲ができるまでの夜" />
             </label>
 
             <label>slug（URL用・英数字）
               <input id="t_postSlug" type="text" placeholder="例：making-of-new-song" />
-              <span class="hint">空欄でも自動生成されます（日本語は自動で英数字に変換します）。</span>
+              <span class="hint">空欄でも自動生成します（日本語タイトルの場合は安全なslugになります）。</span>
             </label>
 
-            <label>日付（YYYY-MM-DD）
-              <input id="t_postDate" type="date" />
-            </label>
+            <div class="out__grid">
+              <label>日付（YYYY-MM-DD）
+                <input id="t_postDate" type="text" placeholder="2026-01-04" />
+              </label>
 
-            <label>読了分（任意）
-              <input id="t_postRead" type="number" min="1" step="1" placeholder="例：4" />
-            </label>
+              <label>タグ（カンマ区切り）
+                <input id="t_postTags" type="text" placeholder="制作,日記,セキュリティ" />
+              </label>
+            </div>
 
-            <label>抜粋（一覧に表示）
-              <input id="t_postExcerpt" type="text" placeholder="例：夜のネオンに触れるようなポップを目指して…" />
-            </label>
-
-            <label>タグ（カンマ区切り）
-              <input id="t_postTags" type="text" placeholder="例：制作, 歌詞, 新曲" />
+            <label>概要（空欄なら本文から自動生成）
+              <input id="t_postExcerpt" type="text" placeholder="検索結果や一覧に表示される短い説明" />
             </label>
 
             <label>本文（Markdown）
-              <textarea id="t_postBody" rows="10" placeholder="# 見出し&#10;本文…"></textarea>
+              <textarea id="t_postBody" placeholder="# タイトル&#10;&#10;本文..."></textarea>
+            </label>
+
+            <label>画像を追加（本文末にリンクを挿入）
+              <input id="t_postImages" type="file" multiple accept="image/*" />
+              <span class="hint">画像ファイル名は自動で <code>img-&lt;slug&gt;-01.webp</code> などになります。</span>
             </label>
 
             <div class="row">
-              <button id="t_makePost" class="btn btn--small hero__cta" type="button">生成</button>
-              <button id="t_downloadMd" class="btn btn--small btn--ghost" type="button" disabled>Markdownをダウンロード</button>
-              <button id="t_downloadPostsJson" class="btn btn--small btn--ghost" type="button" disabled>posts.jsonをダウンロード</button>
+              <button class="btn" id="t_savePost" type="button">保存（posts.json + Markdown）</button>
+              <button class="btn btn--ghost" id="t_previewPost" type="button">プレビュー</button>
             </div>
-          </div>
 
-          <details class="out">
-            <summary>生成結果（コピー用）</summary>
-            <div class="out__grid">
-              <div>
-                <h3>posts.json 追加/更新</h3>
-                <pre><code id="t_postsJsonOut"></code></pre>
-              </div>
-              <div>
-                <h3>Markdown（post-&lt;slug&gt;.md）</h3>
-                <pre><code id="t_mdOut"></code></pre>
-              </div>
+            <div id="t_postStatus" class="status"></div>
+
+            <div class="out">
+              <h3>プレビュー</h3>
+              <div id="t_postPreview" class="card"></div>
             </div>
-          </details>
-
-          <div class="card tip">
-            <h3>GitHubでの反映（初心者向け）</h3>
-            <ol>
-              <li>GitHubで <code>post-</code> に Markdown を追加（Upload files でもOK）</li>
-              <li><code>posts.json</code> を置き換えて保存</li>
-              <li>数十秒〜数分で公開に反映</li>
-            </ol>
           </div>
         </section>
 
+        <!-- 2) Videos -->
         <section class="card tool" data-reveal="d2">
-          <h2>② YouTube 追加ツール</h2>
-          <p class="muted">URLを貼るだけで動画IDを抽出し、videos.json更新版を生成します。</p>
+          <h2>2) 動画</h2>
+          <p class="muted">YouTubeリンク、または動画ファイル（mp4/webm）を追加して <code>videos.json</code> を更新します。</p>
 
-          
-          <div class="import">
-            <p class="hint">既存の <code>videos.json</code> を読み込む（ドラッグ＆ドロップ可）</p>
-            <input id="t_videosFile" class="import__file" type="file" accept=".json,application/json" />
-            <div id="t_videosDrop" class="dropzone">ここに <code>videos.json</code> をドロップ（クリックでも選べます）</div>
-            <div id="t_videosStatus" class="hint"></div>
-          </div>
-<div class="form">
-            <label>YouTube URL
-              <input id="t_ytUrl" type="url" placeholder="例：https://www.youtube.com/watch?v=XXXXXXXXXXX" />
+          <div class="form">
+            <label>既存動画を選ぶ（編集の起点）
+              <select id="t_videoSelect">
+                <option value="">（読み込み中…）</option>
+              </select>
+            </label>
+
+            <label>種類
+              <select id="t_videoType">
+                <option value="youtube">YouTube</option>
+                <option value="file">ファイルをアップロード</option>
+              </select>
             </label>
 
             <label>タイトル（表示用）
-              <input id="t_ytTitle" type="text" placeholder="例：MV：曲名" />
+              <input id="t_videoTitle" type="text" placeholder="例：MV：曲名" />
             </label>
 
-            <label>説明（短め）
-              <input id="t_ytDesc" type="text" placeholder="例：新曲のMV。夜の温度感。" />
+            <label>日付（YYYY-MM-DD）
+              <input id="t_videoDate" type="text" placeholder="2026-01-04" />
             </label>
+
+            <div id="t_blockYoutube">
+              <label>YouTube URL
+                <input id="t_ytUrl" type="url" placeholder="https://www.youtube.com/watch?v=XXXXXXXXXXX" />
+              </label>
+            </div>
+
+            <div id="t_blockFile" class="hidden">
+              <label>slug（ファイル名用・英数字）
+                <input id="t_videoSlug" type="text" placeholder="例：mv-songname" />
+              </label>
+
+              <label>動画ファイル（mp4/webm）
+                <input id="t_videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" />
+              </label>
+
+              <label>サムネ（任意）
+                <input id="t_posterFile" type="file" accept="image/*" />
+              </label>
+
+              <p class="hint">ファイル名は自動で <code>video-&lt;slug&gt;.mp4</code> / <code>poster-&lt;slug&gt;.jpg</code> などになります。</p>
+            </div>
 
             <div class="row">
-              <button id="t_addVideo" class="btn btn--small" type="button">追加して生成</button>
-              <button id="t_downloadVideosJson" class="btn btn--small btn--ghost" type="button" disabled>videos.jsonをダウンロード</button>
+              <button class="btn" id="t_saveVideo" type="button">保存（videos.json + ファイル）</button>
             </div>
-          </div>
 
-          <details class="out">
-            <summary>生成結果（コピー用）</summary>
-            <h3>videos.json（更新版）</h3>
-            <pre><code id="t_videosJsonOut"></code></pre>
-          </details>
-
-          <div class="card tip">
-            <h3>ポイント（プライバシー配慮）</h3>
-            <ul>
-              <li>このサイトは動画のサムネイルを自動取得しません（外部通信を減らすため）。</li>
-              <li>再生はクリック後に <code>youtube-nocookie.com</code> で埋め込みます。</li>
-            </ul>
+            <div id="t_videoStatus" class="status"></div>
           </div>
         </section>
 
+        <!-- 3) Contact / settings -->
         <section class="card tool" data-reveal="d2">
-          <h2>③ サイト設定（連絡先）</h2>
-          <p class="muted">連絡先メールを1か所に設定します（<code>site.json</code> を置き換えるだけ）。</p>
+          <h2>3) 連絡設定（site.json）</h2>
+          <p class="muted">「メール起動」または「Googleフォーム埋め込み」を選べます。</p>
 
-          
-          <div class="import">
-            <p class="hint">既存の <code>site.json</code> を読み込む（ドラッグ＆ドロップ可）</p>
-            <input id="t_siteFile" class="import__file" type="file" accept=".json,application/json" />
-            <div id="t_siteDrop" class="dropzone">ここに <code>site.json</code> をドロップ（クリックでも選べます）</div>
-            <div id="t_siteStatus" class="hint"></div>
-          </div>
-<div class="form">
-            <label>連絡先メール（受信するアドレス）
-              <input id="t_siteEmail" type="email" placeholder="例：kaito.contact@gmail.com" />
+          <div class="form">
+            <label>連絡方法
+              <select id="t_contactMode">
+                <option value="mailto">メール（mailto）</option>
+                <option value="googleform">Googleフォーム</option>
+                <option value="both">両方</option>
+              </select>
             </label>
-            <label>件名（メールのタイトル）
-              <input id="t_siteSubject" type="text" placeholder="例：翠山海翔サイトからのメッセージ" />
+
+            <label>メールアドレス（サイトに平文で置かない／軽い難読化）
+              <input id="t_siteEmail" type="email" placeholder="example@domain.com" />
+              <span class="hint">保存時に難読化して <code>site.json</code> に入ります（完全な防御ではありません）。</span>
             </label>
-            <label>本文テンプレ（メールの本文）
-              <textarea id="t_siteBody" rows="8" placeholder="こんにちは！&#10;&#10;（ここにメッセージ）"></textarea>
+
+            <label>メール件名
+              <input id="t_siteSubject" type="text" placeholder="翠山海翔サイトからのメッセージ" />
+            </label>
+
+            <label>本文テンプレ（メール本文・フォーム説明にも使えます）
+              <textarea id="t_siteBody" placeholder="こんにちは！&#10;&#10;【用件】&#10;..."></textarea>
+            </label>
+
+            <label>Googleフォーム埋め込みURL（embedded=true のURL）
+              <input id="t_formUrl" type="url" placeholder="https://docs.google.com/forms/d/e/.../viewform?embedded=true" />
+              <span class="hint">Googleフォーム側の「送信」→「&lt;&gt;」で出る埋め込みURLを貼ってください。</span>
             </label>
 
             <div class="row">
-              <button id="t_makeSiteJson" class="btn btn--small" type="button">site.json を生成</button>
-              <button id="t_downloadSiteJson" class="btn btn--small btn--ghost" type="button" disabled>site.json をダウンロード</button>
+              <button class="btn" id="t_saveSite" type="button">site.json を保存</button>
             </div>
-          </div>
 
-          <details class="out">
-            <summary>生成結果（コピー用）</summary>
-            <h3>site.json</h3>
-            <pre><code id="t_siteJsonOut"></code></pre>
-          </details>
+            <div id="t_siteStatus" class="status"></div>
 
-          <div class="card tip">
-            <h3>反映方法</h3>
-            <ol>
-              <li>ダウンロードした <code>site.json</code> を GitHub の <code>site.json</code> に置き換え</li>
-              <li>保存すると <code>contact.html</code> のボタンが自動であなたのメールに向きます</li>
-            </ol>
+            <p class="note">
+              送受信を簡便にするなら：<strong>フォーム＝受信専用</strong>、返信はメールで（必要なときだけ）がおすすめです。
+            </p>
           </div>
         </section>
 
-        <section class="card tool">
-          <h2>④ 非公開メッセージを「設定ほぼゼロ」で動かす</h2>
-          <p class="muted">このサイトの <code>contact.html</code> は <strong>Netlify Forms</strong> に対応しています。サーバの鍵（APIキー）をリポジトリに入れずに動かせます。</p>
-          <ol>
-            <li>Netlifyでこのリポジトリをデプロイ（ドラッグ＆ドロップでもOK）</li>
-            <li>デプロイ後、Netlifyの管理画面で <strong>Forms</strong> にフォームが見えることを確認</li>
-            <li><strong>通知（Email notifications）</strong> にあなたの受信アドレスを設定</li>
-          </ol>
-          <p class="muted">迷惑送信対策：ハニーポットを標準で有効化しています。追加で reCAPTCHA も設定できます。</p>
-
-          <h2>⑤ 最低限のセキュリティ運用チェック</h2>
-          <ul class="bullet">
-            <li>住所・勤務先の詳細・行動パターンが特定できる情報は載せない</li>
-            <li>写真はEXIF削除（位置情報や撮影日時が残ることがあります）</li>
-            <li>公開リポジトリにAPIキー/限定URLを入れない</li>
-          </ul>
-          <p class="muted">※ GitHub Pages だけだとHTTPヘッダ（CSP等）を強化できません。必要なら Cloudflare Pages 推奨。</p>
-        </section>
       </div>
     </div>
   </main>

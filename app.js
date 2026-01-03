@@ -1,1062 +1,1212 @@
+/* honNKi Site - app.js
+   Static site helper for GitHub Pages.
+   - Blog: posts.json + post-<slug>.md
+   - Videos: videos.json (YouTube / local file)
+   - Contact: mailto and/or Google Form embed (site.json)
+   - Tools: owner-only content generator; produces files for manual upload
+*/
 
+(() => {
+  "use strict";
 
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-function initChapters() {
-  const sections = Array.from(document.querySelectorAll("[data-chapter]"));
-  if (!sections.length) return;
+  const BASE = (document.querySelector("link[rel=canonical]")?.href || "").replace(/(index\.html)?$/, "");
+  const TODAY_ISO = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
 
-  // Build rail
-  const rail = document.createElement("nav");
-  rail.className = "chapterRail";
-  rail.setAttribute("aria-label", "ページの章");
+  function setYears() {
+    $$("[data-year]").forEach((el) => (el.textContent = String(new Date().getFullYear())));
+  }
 
-  const dots = sections.map((sec, idx) => {
-    const label = sec.getAttribute("data-chapter-label") || `Chapter ${idx + 1}`;
-    const tone = sec.getAttribute("data-tone") || String((idx % 3) + 1);
+  async function fetchText(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Fetch failed: ${url} (${res.status})`);
+    return await res.text();
+  }
 
-    const dot = document.createElement("button");
-    dot.type = "button";
-    dot.className = "chapterDot";
-    dot.setAttribute("data-label", label);
-    dot.setAttribute("aria-label", label);
+  async function fetchJson(url) {
+    const txt = await fetchText(url);
+    return JSON.parse(txt);
+  }
 
-    dot.addEventListener("click", () => {
-      sec.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
 
-    rail.appendChild(dot);
-    return { dot, sec, label, tone };
-  });
+  function safeUrl(url) {
+    const u = String(url || "").trim();
+    if (!u) return "";
+    // Disallow javascript: and data: (except images are handled separately)
+    const lower = u.toLowerCase();
+    if (lower.startsWith("javascript:")) return "";
+    if (lower.startsWith("data:")) return "";
+    return u;
+  }
 
-  document.body.appendChild(rail);
+  function estimateReadMinutes(md) {
+    const s = String(md || "");
+    // Rough estimate: Japanese ~600 chars/min, English ~200 words/min
+    const jpChars = (s.match(/[\u3040-\u30ff\u3400-\u9fff]/g) || []).length;
+    const words = (s.replace(/[\u3040-\u30ff\u3400-\u9fff]/g, " ").match(/\b[\w'-]+\b/g) || []).length;
+    const minsJp = jpChars / 600;
+    const minsEn = words / 200;
+    const mins = Math.max(1, Math.round((minsJp + minsEn) || 1));
+    return mins;
+  }
 
-  // Observe sections to activate dot + tone shift
-  const io = new IntersectionObserver((entries) => {
-    // pick the most visible section
-    const vis = entries.filter(e => e.isIntersecting).sort((a,b)=> (b.intersectionRatio - a.intersectionRatio))[0];
-    if (!vis) return;
+  function stripMarkdown(md) {
+    let s = String(md || "");
+    s = s.replace(/```[\s\S]*?```/g, "");
+    s = s.replace(/`[^`]*`/g, "");
+    s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
+    s = s.replace(/\[[^\]]*\]\([^)]+\)/g, "$1");
+    s = s.replace(/[#>*_-]/g, " ");
+    s = s.replace(/\s+/g, " ").trim();
+    return s;
+  }
 
-    const hit = dots.find(d => d.sec === vis.target);
-    if (!hit) return;
+  function excerptFromMd(md, maxLen = 90) {
+    const t = stripMarkdown(md);
+    if (!t) return "";
+    return t.length <= maxLen ? t : t.slice(0, maxLen).trim() + "…";
+  }
 
-    dots.forEach(d => d.dot.classList.toggle("is-active", d === hit));
-    document.body.setAttribute("data-chapter-tone", hit.tone);
-  }, { threshold: [0.18, 0.32, 0.5], rootMargin: "-10% 0px -55% 0px" });
+  // Minimal markdown renderer (safe-by-default: escapes HTML first)
+  function markdownToHtml(md) {
+    const src = String(md || "").replace(/\r\n?/g, "\n");
+    const lines = src.split("\n");
 
-  dots.forEach(d => io.observe(d.sec));
+    const out = [];
+    let i = 0;
 
-  // Divider lines reveal
-  const divs = Array.from(document.querySelectorAll(".chapterDivider"));
-  if (divs.length) {
-    const dio = new IntersectionObserver((entries)=>{
-      for (const e of entries){
-        if (e.isIntersecting){
-          e.target.classList.add("is-visible");
-          dio.unobserve(e.target);
+    const flushParagraph = (buf) => {
+      if (!buf.length) return;
+      const text = buf.join(" ").trim();
+      if (!text) return;
+      out.push(`<p>${inline(text)}</p>`);
+      buf.length = 0;
+    };
+
+    const inline = (text) => {
+      let s = escapeHtml(text);
+
+      // images ![alt](url)
+      s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+        const u = safeUrl(url);
+        if (!u) return "";
+        return `<img alt="${escapeHtml(alt)}" loading="lazy" src="${escapeHtml(u)}" />`;
+      });
+
+      // links [text](url)
+      s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+        const u = safeUrl(url);
+        if (!u) return escapeHtml(label);
+        const isExternal = /^https?:\/\//i.test(u);
+        const rel = isExternal ? ' rel="noopener noreferrer"' : "";
+        return `<a href="${escapeHtml(u)}"${rel}>${escapeHtml(label)}</a>`;
+      });
+
+      // inline code
+      s = s.replace(/`([^`]+)`/g, (_, code) => `<code>${escapeHtml(code)}</code>`);
+      // bold and italics (simple)
+      s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+      return s;
+    };
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // code fence
+      if (line.startsWith("```")) {
+        const lang = line.slice(3).trim();
+        i++;
+        const codeLines = [];
+        while (i < lines.length && !lines[i].startsWith("```")) {
+          codeLines.push(lines[i]);
+          i++;
         }
+        // skip closing ```
+        if (i < lines.length && lines[i].startsWith("```")) i++;
+        flushParagraph([]);
+        const code = escapeHtml(codeLines.join("\n"));
+        out.push(`<pre><code${lang ? ` data-lang="${escapeHtml(lang)}"` : ""}>${code}</code></pre>`);
+        continue;
       }
-    }, { threshold: 0.2, rootMargin: "0px 0px -20% 0px" });
-    divs.forEach(el => dio.observe(el));
-  }
-}
 
-function initReveal() {
-  const els = Array.from(document.querySelectorAll("[data-reveal], .reveal"));
-  if (!els.length) return;
-
-  // If motion reduced, show immediately
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    els.forEach(el => el.classList.add("reveal", "is-visible"));
-    return;
-  }
-
-  const io = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      if (e.isIntersecting) {
-        e.target.classList.add("is-visible");
-        io.unobserve(e.target);
+      // blank line
+      if (!line.trim()) {
+        i++;
+        continue;
       }
+
+      // heading
+      const h = line.match(/^(#{1,3})\s+(.+)$/);
+      if (h) {
+        flushParagraph([]);
+        const level = h[1].length;
+        out.push(`<h${level}>${inline(h[2].trim())}</h${level}>`);
+        i++;
+        continue;
+      }
+
+      // blockquote
+      if (line.startsWith(">")) {
+        flushParagraph([]);
+        const q = [];
+        while (i < lines.length && lines[i].startsWith(">")) {
+          q.push(lines[i].replace(/^>\s?/, ""));
+          i++;
+        }
+        out.push(`<blockquote>${inline(q.join("\n").trim())}</blockquote>`);
+        continue;
+      }
+
+      // list (unordered)
+      const ul = line.match(/^\s*[-*]\s+(.+)$/);
+      if (ul) {
+        flushParagraph([]);
+        out.push("<ul>");
+        while (i < lines.length) {
+          const m = lines[i].match(/^\s*[-*]\s+(.+)$/);
+          if (!m) break;
+          out.push(`<li>${inline(m[1].trim())}</li>`);
+          i++;
+        }
+        out.push("</ul>");
+        continue;
+      }
+
+      // list (ordered)
+      const ol = line.match(/^\s*\d+\.\s+(.+)$/);
+      if (ol) {
+        flushParagraph([]);
+        out.push("<ol>");
+        while (i < lines.length) {
+          const m = lines[i].match(/^\s*\d+\.\s+(.+)$/);
+          if (!m) break;
+          out.push(`<li>${inline(m[1].trim())}</li>`);
+          i++;
+        }
+        out.push("</ol>");
+        continue;
+      }
+
+      // paragraph (collect until blank)
+      const pbuf = [];
+      while (i < lines.length && lines[i].trim() && !lines[i].startsWith("```")) {
+        // stop paragraph before block constructs
+        if (/^(#{1,3})\s+/.test(lines[i])) break;
+        if (lines[i].startsWith(">")) break;
+        if (/^\s*[-*]\s+/.test(lines[i])) break;
+        if (/^\s*\d+\.\s+/.test(lines[i])) break;
+        pbuf.push(lines[i].trim());
+        i++;
+      }
+      flushParagraph(pbuf);
     }
-  }, { root: null, threshold: 0.14, rootMargin: "0px 0px -10% 0px" });
 
-  els.forEach((el) => {
-    el.classList.add("reveal");
-    const v = el.getAttribute("data-reveal") || "";
-    if (v.includes("slow")) el.classList.add("reveal--slow");
-    if (v.includes("d1")) el.classList.add("reveal--delay-1");
-    if (v.includes("d2")) el.classList.add("reveal--delay-2");
-    if (v.includes("d3")) el.classList.add("reveal--delay-3");
-    io.observe(el);
-  });
-}
+    return out.join("\n");
+  }
 
-function initCardTilt() {
-  // Tiny, optional delight — disabled on touch + reduced motion
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  if ("ontouchstart" in window) return;
+  function parseCSVTags(input) {
+    return String(input || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+  }
 
-  const cards = Array.from(document.querySelectorAll(".card"));
-  cards.forEach((card) => {
-    card.addEventListener("mousemove", (ev) => {
-      const r = card.getBoundingClientRect();
-      const x = (ev.clientX - r.left) / r.width;
-      const y = (ev.clientY - r.top) / r.height;
-      const rx = (0.5 - y) * 2.0; // -1..1
-      const ry = (x - 0.5) * 2.0;
-      card.style.transform = `perspective(900px) rotateX(${rx * 2.2}deg) rotateY(${ry * 2.2}deg)`;
-    });
-    card.addEventListener("mouseleave", () => {
-      card.style.transform = "";
-    });
-  });
-}
+  function normalizeSlug(raw) {
+    const s = String(raw || "").trim().toLowerCase();
+    const ascii = s
+      .replace(/['"]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64);
+    return ascii;
+  }
 
-/* eslint-disable no-console */
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  function makeSafeSlug(title) {
+    const fromTitle = normalizeSlug(title);
+    if (fromTitle && /^[a-z0-9][a-z0-9-]*$/.test(fromTitle)) return fromTitle;
+    const date = TODAY_ISO();
+    const rand = Math.random().toString(36).slice(2, 6);
+    return `post-${date}-${rand}`;
+  }
 
-function setYears() {
-  const y = String(new Date().getFullYear());
-  $$("[data-year]").forEach(el => (el.textContent = y));
-}
-
-function escapeHTML(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-
-function b64revEncode(email) {
-  // store: base64(reverse(email))
-  const e = String(email ?? "").trim();
-  const rev = e.split("").reverse().join("");
-  return btoa(unescape(encodeURIComponent(rev)));
-}
-function b64revDecode(enc) {
-  const s = String(enc ?? "").trim();
-  if (!s) return "";
-  try {
-    const rev = decodeURIComponent(escape(atob(s)));
-    return rev.split("").reverse().join("");
-  } catch (_) {
+  function getYoutubeId(url) {
+    const u = String(url || "").trim();
+    if (!u) return "";
+    try {
+      const parsed = new URL(u);
+      const host = parsed.hostname.replace(/^www\./, "");
+      if (host === "youtu.be") return parsed.pathname.replace("/", "").slice(0, 32);
+      if (host.endsWith("youtube.com")) {
+        const v = parsed.searchParams.get("v");
+        if (v) return v.slice(0, 32);
+        const m = parsed.pathname.match(/\/shorts\/([^/]+)/);
+        if (m) return m[1].slice(0, 32);
+        const e = parsed.pathname.match(/\/embed\/([^/]+)/);
+        if (e) return e[1].slice(0, 32);
+      }
+    } catch (_) {}
     return "";
   }
-}
 
-
-function safeURL(url) {
-  // Allow only same-origin relative links for posts (security-first)
-  // For external links in markdown, we allow https: only.
-  try {
-    if (!url) return "#";
-    if (url.startsWith("/")) return url;
-    if (url.startsWith("./")) return url;
-    if (url.startsWith("../")) return url;
-    const u = new URL(url);
-    if (u.protocol === "https:") return u.toString();
-  } catch (_) {}
-  return "#";
-}
-
-async function loadJSON(path) {
-  const res = await fetch(path, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
-  return await res.json();
-}
-
-async function loadSiteConfig() {
-  try {
-    return await loadJSON("site.json");
-  } catch (_) {
-    return null;
+  // Email obfuscation (lightweight)
+  function b64revEncode(s) {
+    const b = btoa(unescape(encodeURIComponent(String(s))));
+    return b.split("").reverse().join("");
   }
-}
-
-async function postJSON(path, payload) {
-  const res = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const text = await res.text();
-  let data = null;
-  try { data = JSON.parse(text); } catch (_) {}
-  return { ok: res.ok, status: res.status, data, text };
-}
-
-async function loadText(path) {
-  const res = await fetch(path, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
-  return await res.text();
-}
-
-/* ---------- Markdown (minimal, safe-side) ----------
-- HTML is escaped first (so raw HTML isn't executed)
-- Supports:
-  #, ##, ### headings
-  - unordered lists
-  ``` fenced code blocks
-  > blockquote
-  [text](https://example.com) links (https only)
-  paragraphs
----------------------------------------------------*/
-function renderMarkdown(md) {
-  const src = String(md ?? "").replace(/\r\n/g, "\n");
-
-  // Escape all HTML first (prevents injection)
-  let s = escapeHTML(src);
-
-  // Fenced code blocks
-  const codeBlocks = [];
-  s = s.replace(/```([\s\S]*?)```/g, (_, code) => {
-    codeBlocks.push(code);
-    return `@@CODEBLOCK_${codeBlocks.length - 1}@@`;
-  });
-
-  // Blockquotes (line-based)
-  s = s.split("\n").map(line => {
-    if (line.startsWith("&gt; ")) return `@@BQ@@${line.slice(5)}`; // "&gt; " because escaped
-    if (line === "&gt;") return `@@BQ@@`;
-    return line;
-  }).join("\n");
-
-  // Headings
-  s = s.replace(/^###\s+(.+)$/gm, "<h3>$1</h3>");
-  s = s.replace(/^##\s+(.+)$/gm, "<h2>$1</h2>");
-  s = s.replace(/^#\s+(.+)$/gm, "<h1>$1</h1>");
-
-  // Links: [text](url) where url is https only
-  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
-    const href = safeURL(url.trim());
-    const t = text;
-    if (href === "#") return t;
-    const rel = href.startsWith("https://") ? ` rel="noopener noreferrer"` : ` rel="noopener"`;
-    const target = href.startsWith("https://") ? ` target="_blank"` : "";
-    return `<a href="${escapeHTML(href)}"${target}${rel}>${t}</a>`;
-  });
-
-  // Unordered lists: group consecutive "- " lines
-  const lines = s.split("\n");
-  const out = [];
-  let inList = false;
-  let inBQ = false;
-  let bqLines = [];
-
-  const flushBQ = function pageContact() {
-  // GitHub Pagesでも「設定ほぼゼロ」で使えるように、メール送信（mailto）方式にします。
-  // ※メールアドレスは画面に直接表示せず、JSで組み立てます（ただし公開リポジトリでは完全秘匿はできません）。
-  const btn = document.getElementById("contactMailBtn");
-  const status = document.getElementById("contactStatus");
-
-  const setStatus = (msg) => { if (status) status.textContent = msg; };
-
-  if (btn) {
-    btn.addEventListener("click", (e) => {
-      if (btn.hasAttribute("disabled") || btn.getAttribute("href") === "#") e.preventDefault();
-    });
-  }
-
-  (async () => {
+  function b64revDecode(s) {
     try {
-      const data = await loadJSON("site.json");
-      const email = String(data?.contact_email || "");
-      const subject = String(data?.mailto_subject || "");
-      const body = String(data?.mailto_body || "");
+      const b = String(s || "").split("").reverse().join("");
+      return decodeURIComponent(escape(atob(b)));
+    } catch (_) {
+      return "";
+    }
+  }
 
-      if (!email || !email.includes("@")) {
-        setStatus("連絡先メール（site.json）が未設定です。Toolsページで site.json を生成してアップロードしてください。");
-        if (btn) btn.setAttribute("disabled", "disabled");
+  // UI helpers
+  function setStatus(el, msg, kind = "ok") {
+    if (!el) return;
+    el.textContent = msg || "";
+    el.classList.remove("status--ok", "status--ng", "status--show");
+    if (!msg) return;
+    el.classList.add("status--show");
+    el.classList.add(kind === "ok" ? "status--ok" : "status--ng");
+  }
+
+  // -------- Blog Index --------
+  async function pageBlogIndex() {
+    const grid = $("#postsAll");
+    const q = $("#q");
+    if (!grid) return;
+
+    let posts = [];
+    try {
+      posts = await fetchJson("posts.json");
+    } catch (e) {
+      grid.innerHTML = `<p class="muted">posts.json を読み込めませんでした。公開が反映されていないか、ファイルが存在しません。</p>`;
+      grid.removeAttribute("aria-busy");
+      return;
+    }
+
+    const norm = (s) => String(s || "").toLowerCase();
+
+    const render = (items) => {
+      if (!items.length) {
+        grid.innerHTML = `<p class="muted">該当する記事がありません。</p>`;
+        grid.removeAttribute("aria-busy");
         return;
       }
-
-      // Obfuscate slightly: build string at runtime
-      const parts = email.split("@");
-      const safeEmail = parts[0] + "@" + parts[1];
-
-      const qs = new URLSearchParams();
-      if (subject) qs.set("subject", subject);
-      if (body) qs.set("body", body);
-
-      const href = "mailto:" + safeEmail + (qs.toString() ? ("?" + qs.toString()) : "");
-      if (btn) {
-        btn.removeAttribute("disabled");
-        btn.setAttribute("href", href);
-      }
-      setStatus("送信ボタンを押すと、お使いのメールアプリが開きます。");
-    } catch (e) {
-      console.error(e);
-      setStatus("site.json の読み込みに失敗しました。ファイル名（site.json）と配置（リポジトリ直下）を確認してください。");
-      if (btn) btn.setAttribute("disabled", "disabled");
-    }
-  })();
-}
-
-
-() => {
-    if (!inBQ) return;
-    out.push(`<blockquote>${bqLines.join("<br/>")}</blockquote>`);
-    inBQ = false;
-    bqLines = [];
-  };
-
-  const flushList = () => {
-    if (!inList) return;
-    out.push("</ul>");
-    inList = false;
-  };
-
-  for (const line of lines) {
-    if (line.startsWith("@@BQ@@")) {
-      // Start or continue blockquote
-      flushList();
-      inBQ = true;
-      bqLines.push(line.replace("@@BQ@@", ""));
-      continue;
-    } else {
-      flushBQ();
-    }
-
-    if (line.startsWith("- ")) {
-      if (!inList) {
-        out.push("<ul>");
-        inList = true;
-      }
-      out.push(`<li>${line.slice(2)}</li>`);
-      continue;
-    } else {
-      flushList();
-    }
-
-    // Paragraphs: ignore empty lines, keep headings and other block tags as-is
-    const trimmed = line.trim();
-    if (!trimmed) {
-      out.push("");
-      continue;
-    }
-
-    if (/^<h[1-3]>/.test(trimmed) || /^<\/?(ul|li|blockquote|pre|code)>/.test(trimmed)) {
-      out.push(trimmed);
-      continue;
-    }
-    out.push(`<p>${trimmed}</p>`);
-  }
-  flushBQ();
-  flushList();
-
-  let html = out.join("\n");
-
-  // Restore code blocks
-  html = html.replace(/@@CODEBLOCK_(\d+)@@/g, (_, i) => {
-    const code = codeBlocks[Number(i)] ?? "";
-    return `<pre><code>${code}</code></pre>`;
-  });
-
-  // Clean up multiple blank lines
-  html = html.replace(/\n{3,}/g, "\n\n");
-  return html;
-}
-
-/* ---------- Blog cards ---------- */
-function postCard(p) {
-  const tags = (p.tags ?? []).slice(0, 4).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join("");
-  const href = `post.html?slug=${encodeURIComponent(p.slug)}`;
-  return `
-    <article class="card">
-      <div class="card__top">
-        <span class="badge">${escapeHTML(p.date)}</span>
-        ${p.readMinutes ? `<span class="badge">${escapeHTML(p.readMinutes)} min</span>` : ""}
-      </div>
-      <h3><a href="${href}" rel="noopener">${escapeHTML(p.title)}</a></h3>
-      <p>${escapeHTML(p.excerpt)}</p>
-      <div class="tags">${tags}</div>
-    </article>
-  `;
-}
-
-function normalizeTextForSearch(p) {
-  const a = [
-    p.title ?? "",
-    p.excerpt ?? "",
-    (p.tags ?? []).join(" ")
-  ].join(" ").toLowerCase();
-  return a;
-}
-
-/* ---------- YouTube (click-to-load, privacy-enhanced) ---------- */
-function videoCard(v) {
-  const vid = escapeHTML(v.youtubeId);
-  const title = escapeHTML(v.title);
-  const desc = escapeHTML(v.description ?? "");
-  const label = `YouTube動画「${title}」をクリックして読み込む`;
-
-  return `
-    <article class="card video">
-      <button class="video__thumb" data-youtube="${vid}" aria-label="${escapeHTML(label)}" type="button">
-        <div class="video__placeholder" aria-hidden="true">
-          <div class="video__placeholderGlow"></div>
-          <div class="video__placeholderText">
-            <div class="video__phTitle">${title}</div>
-            <div class="video__phSub">▶ 再生（クリックで埋め込み）</div>
-          </div>
-        </div>
-      </button>
-      <div class="video__body">
-        <h3 class="video__title">${title}</h3>
-        <p>${desc}</p>
-      </div>
-    </article>
-  `;
-}
-
-function mountYouTubeIframe(buttonEl, youtubeId) {
-  const iframe = document.createElement("iframe");
-  iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
-  iframe.allowFullscreen = true;
-  iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}?autoplay=1`;
-  iframe.title = "YouTube video player";
-  iframe.style.width = "100%";
-  iframe.style.height = "100%";
-  iframe.style.border = "0";
-  buttonEl.replaceWith(iframe);
-}
-
-/* ---------- Pages ---------- */
-async function pageHome() {
-  // Latest posts
-  const postsEl = $("#posts");
-  try {
-    const posts = await loadJSON("posts.json");
-    const latest = posts.slice(0, 6);
-    postsEl.innerHTML = latest.map(postCard).join("");
-  } catch (e) {
-    postsEl.innerHTML = `<div class="card"><h3>読み込みエラー</h3><p>posts.json を確認してください。</p></div>`;
-    console.error(e);
-  } finally {
-    postsEl?.setAttribute("aria-busy", "false");
-  }
-
-  // Videos (maybe empty)
-  const videosEl = $("#videosGrid");
-  try {
-    const videos = await loadJSON("videos.json");
-    if (!videos.length) {
-      videosEl.innerHTML = `<div class="card"><h3>準備中</h3><p>YouTube公開後に videos.json を更新すると表示されます。</p></div>`;
-    } else {
-      videosEl.innerHTML = videos.map(videoCard).join("");
-      videosEl.addEventListener("click", (ev) => {
-        const btn = ev.target.closest("button[data-youtube]");
-        if (!btn) return;
-        const id = btn.getAttribute("data-youtube");
-        if (!id) return;
-        mountYouTubeIframe(btn, id);
-      });
-    }
-  } catch (e) {
-    videosEl.innerHTML = `<div class="card"><h3>読み込みエラー</h3><p>videos.json を確認してください。</p></div>`;
-    console.error(e);
-  } finally {
-    videosEl?.setAttribute("aria-busy", "false");
-  }
-}
-
-async function pageBlogIndex() {
-  const grid = $("#postsAll");
-  const q = $("#q");
-  try {
-    const posts = await loadJSON("posts.json");
-
-    const render = (query) => {
-      const term = (query ?? "").trim().toLowerCase();
-      const filtered = term
-        ? posts.filter(p => normalizeTextForSearch(p).includes(term))
-        : posts;
-
-      grid.innerHTML = filtered.map(postCard).join("") || `<div class="card"><h3>見つかりません</h3><p>別のキーワードを試してください。</p></div>`;
+      const cards = items
+        .slice()
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+        .map((p) => {
+          const tags = (p.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+          const date = p.date ? `<span class="badge">${escapeHtml(p.date)}</span>` : "";
+          const mins = p.readMinutes ? `<span class="badge">${escapeHtml(String(p.readMinutes))} min</span>` : "";
+          const excerpt = p.excerpt ? `<p class="muted">${escapeHtml(p.excerpt)}</p>` : "";
+          return `
+            <article class="card card--post" data-reveal="d1">
+              <a class="card__link" href="post.html?slug=${encodeURIComponent(p.slug)}">
+                <div class="post__meta">${date}${mins}</div>
+                <h3>${escapeHtml(p.title || p.slug)}</h3>
+                ${excerpt}
+                <div class="tags">${tags}</div>
+              </a>
+            </article>
+          `;
+        })
+        .join("");
+      grid.innerHTML = cards;
+      grid.removeAttribute("aria-busy");
+      initReveal();
     };
 
-    render("");
-    q.addEventListener("input", () => render(q.value));
-  } catch (e) {
-    grid.innerHTML = `<div class="card"><h3>読み込みエラー</h3><p>posts.json を確認してください。</p></div>`;
-    console.error(e);
-  } finally {
-    grid?.setAttribute("aria-busy", "false");
-  }
-}
+    render(posts);
 
-async function pageContactForm() {
-  const form = $("#contactForm");
-  const statusEl = $("#status");
-  const btn = $("#sendBtn");
-
-  const setStatus = (kind, msg) => {
-    if (!statusEl) return;
-    statusEl.classList.add("status--show");
-    statusEl.classList.remove("status--ok", "status--ng");
-    statusEl.classList.add(kind === "ok" ? "status--ok" : "status--ng");
-    statusEl.textContent = msg;
-  };
-
-  form?.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-
-    const name = String($("#c_name")?.value ?? "").trim();
-    const email = String($("#c_email")?.value ?? "").trim();
-    const message = String($("#c_message")?.value ?? "").trim();
-    const hp = String($("#hp")?.value ?? "").trim();
-
-    // Turnstile token is auto-inserted as a hidden input named 'cf-turnstile-response'
-    const token = String(document.querySelector('input[name="cf-turnstile-response"]')?.value ?? "").trim();
-
-    if (!email || !message) {
-      setStatus("ng", "メールとメッセージは必須です。");
-      return;
-    }
-    if (message.length > 2000) {
-      setStatus("ng", "メッセージが長すぎます（2000文字まで）。");
-      return;
-    }
-
-    btn && (btn.disabled = true);
-    setStatus("ok", "送信中…");
-
-    try {
-      const { ok, data, status } = await postJSON("/api/contact", { name, email, message, token, hp });
-      if (ok) {
-        setStatus("ok", "送信できました！返信をお待ちください。");
-        form.reset();
-        // Turnstile tokens are single-use; reset widget if available
-        try { window.turnstile?.reset?.(); } catch (_) {}
-      } else {
-        const msg = (data && data.message) ? data.message : `送信できませんでした（${status}）`;
-        setStatus("ng", msg);
-        try { window.turnstile?.reset?.(); } catch (_) {}
-      }
-    } catch (e) {
-      console.error(e);
-      setStatus("ng", "通信エラーです。時間をおいて、もう一度お試しください。");
-      try { window.turnstile?.reset?.(); } catch (_) {}
-    } finally {
-      btn && (btn.disabled = false);
-    }
-  });
-}
-
-async function pageContactMail() {
-  const btnOpen = $("#openMailBtn");
-  const btnCopy = $("#copyMailBtn");
-  const tpl = $("#mailTemplateOut");
-  const statusEl = $("#contactStatus");
-
-  const setStatus = (kind, msg) => {
-    if (!statusEl) return;
-    statusEl.classList.add("status--show");
-    statusEl.classList.remove("status--ok", "status--ng");
-    statusEl.classList.add(kind === "ok" ? "status--ok" : "status--ng");
-    statusEl.textContent = msg;
-  };
-
-  const cfg = await loadSiteConfig();
-  const subject = cfg?.contactSubject || "Message";
-  const body = cfg?.contactBodyTemplate || "Hello";
-  const email = b64revDecode(cfg?.contactEmailEnc || "");
-
-  if (tpl) tpl.textContent = body;
-
-  const buildMailto = () => {
-    const to = encodeURIComponent(email);
-    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
-
-  if (!email) {
-    setStatus("ng", "作成者が連絡先を設定中です。しばらくしてからお試しください。");
-    btnOpen && (btnOpen.disabled = true);
-  }
-
-  btnOpen?.addEventListener("click", () => {
-    if (!email) return;
-    window.location.href = buildMailto();
-  });
-
-  btnCopy?.addEventListener("click", async () => {
-    if (!email) {
-      setStatus("ng", "作成者が連絡先を設定中です。");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(email);
-      setStatus("ok", "コピーしました！メールアプリで宛先に貼り付けてください。");
-    } catch (_) {
-      window.prompt("コピーして使ってください", email);
-    }
-  });
-}
-
-async function pageVideos() {
-  const videosEl = $("#videosGrid");
-  try {
-    const videos = await loadJSON("videos.json");
-    if (!videos.length) {
-      videosEl.innerHTML = `<div class="card"><h3>準備中</h3><p>YouTube公開後に <code>videos.json</code> を更新すると表示されます。</p><p class="muted">Toolsページから生成できます。</p></div>`;
-      return;
-    }
-    videosEl.innerHTML = videos.map(videoCard).join("");
-    videosEl.addEventListener("click", (ev) => {
-      const btn = ev.target.closest("button[data-youtube]");
-      if (!btn) return;
-      const id = btn.getAttribute("data-youtube");
-      if (!id) return;
-      mountYouTubeIframe(btn, id);
+    q?.addEventListener("input", () => {
+      const kw = norm(q.value);
+      if (!kw) return render(posts);
+      const filtered = posts.filter((p) => {
+        const hay = [p.title, p.excerpt, (p.tags || []).join(" "), p.slug].map(norm).join(" ");
+        return hay.includes(kw);
+      });
+      render(filtered);
     });
-  } catch (e) {
-    videosEl.innerHTML = `<div class="card"><h3>読み込みエラー</h3><p>videos.json を確認してください。</p></div>`;
-    console.error(e);
-  } finally {
-    videosEl?.setAttribute("aria-busy", "false");
   }
-}
 
-function slugifyJP(input) {
-  const s = String(input ?? "").trim();
-  if (!s) return "";
-  // Basic slug: keep a-z0-9, convert spaces to '-', remove others
-  // For Japanese, this will drop characters; so we also keep a short hash-like suffix if empty.
-  let out = s.toLowerCase()
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  if (!out) {
-    const n = Array.from(s).reduce((a,c)=> (a + c.charCodeAt(0)) % 100000, 0);
-    out = `post-${String(n).padStart(5,"0")}`;
-  }
-  return out;
-}
+  // -------- Blog Post --------
+  async function pageBlogPost() {
+    const slug = new URLSearchParams(location.search).get("slug") || "";
+    const titleEl = $("#postTitle");
+    const dateEl = $("#postDate");
+    const readEl = $("#postRead");
+    const excerptEl = $("#postExcerpt");
+    const tagsEl = $("#postTags");
+    const bodyEl = $("#postBody");
+    if (!bodyEl) return;
 
-function parseCSVTags(s) {
-  return String(s ?? "")
-    .split(",")
-    .map(x => x.trim())
-    .filter(Boolean)
-    .slice(0, 10);
-}
-
-function downloadText(filename, text) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function extractYouTubeId(url) {
-  const u = String(url ?? "").trim();
-  if (!u) return "";
-  try {
-    const parsed = new URL(u);
-    const host = parsed.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") {
-      return parsed.pathname.replace("/", "").slice(0, 32);
+    if (!slug) {
+      bodyEl.innerHTML = `<p class="muted">記事が指定されていません。<a href="blog.html">ブログ一覧へ</a></p>`;
+      return;
     }
-    if (host.endsWith("youtube.com")) {
-      const v = parsed.searchParams.get("v");
-      if (v) return v.slice(0, 32);
-      const m = parsed.pathname.match(/\/shorts\/([^/]+)/);
-      if (m) return m[1].slice(0, 32);
-      const e = parsed.pathname.match(/\/embed\/([^/]+)/);
-      if (e) return e[1].slice(0, 32);
-    }
-  } catch (_) {}
-  // If user pasted an ID directly
-  if (/^[a-zA-Z0-9_-]{6,}$/.test(u)) return u.slice(0, 32);
-  return "";
-}
 
-async function pageTools() {
-  // Preload current JSON so tools can generate "updated" files.
-  let posts = [];
-  let videos = [];
-  try { posts = await loadJSON("posts.json"); } catch (_) {}
-  try { videos = await loadJSON("videos.json"); } catch (_) {}
+    let posts = [];
+    try {
+      posts = await fetchJson("posts.json");
+    } catch (_) {}
 
-  // Allow importing local JSON files (drag & drop / file picker) to avoid copy-paste.
-  const readFileText = (file) => new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result ?? ""));
-    r.onerror = () => reject(r.error ?? new Error("Failed to read file"));
-    r.readAsText(file);
-  });
+    const entry = posts.find((p) => p.slug === slug) || null;
 
-  const bindJsonImport = (fileInputId, dropZoneId, statusId, applyFn) => {
-    const input = document.getElementById(fileInputId);
-    const zone = document.getElementById(dropZoneId);
-    const status = document.getElementById(statusId);
+    try {
+      const md = await fetchText(`post-${encodeURIComponent(slug)}.md`);
+      bodyEl.innerHTML = markdownToHtml(md) || `<p class="muted">本文が空です。</p>`;
+      bodyEl.removeAttribute("aria-busy");
 
-    const handleFile = async (file) => {
-      if (!file) return;
-      try {
-        const text = await readFileText(file);
-        const data = JSON.parse(text);
-        applyFn(data, file.name);
-        if (status) status.textContent = `読み込みOK：${file.name}`;
-        if (zone) zone.classList.add("dropzone--ok");
-      } catch (e) {
-        console.error(e);
-        if (status) status.textContent = `読み込み失敗：${file.name}（JSON形式を確認）`;
-        if (zone) zone.classList.remove("dropzone--ok");
-        alert("JSONの読み込みに失敗しました。ファイルが壊れていないか確認してください。");
+      if (titleEl) titleEl.textContent = entry?.title || slug;
+      if (dateEl) dateEl.textContent = entry?.date || "";
+      if (readEl) readEl.textContent = entry?.readMinutes ? `${entry.readMinutes} min` : "";
+      if (excerptEl) excerptEl.textContent = entry?.excerpt || "";
+      if (tagsEl) tagsEl.innerHTML = (entry?.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+
+      // Prev/next
+      const prev = $("#prevPost");
+      const next = $("#nextPost");
+      const sorted = posts
+        .slice()
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+      const idx = sorted.findIndex((p) => p.slug === slug);
+      if (idx >= 0) {
+        const prevEntry = sorted[idx + 1];
+        const nextEntry = sorted[idx - 1];
+        if (prev && prevEntry) prev.href = `post.html?slug=${encodeURIComponent(prevEntry.slug)}`;
+        if (next && nextEntry) next.href = `post.html?slug=${encodeURIComponent(nextEntry.slug)}`;
       }
+
+      initReveal();
+    } catch (e) {
+      bodyEl.innerHTML = `<p class="muted">記事本文を読み込めませんでした。</p>`;
+      bodyEl.removeAttribute("aria-busy");
+    }
+  }
+
+  // -------- Videos --------
+
+  async function pageVideos() {
+    const grid = $("#videosGrid");
+    if (!grid) return;
+
+    let videos = [];
+    try {
+      videos = await fetchJson("videos.json");
+    } catch (e) {
+      grid.innerHTML = `<p class="muted">videos.json を読み込めませんでした。</p>`;
+      grid.removeAttribute("aria-busy");
+      return;
+    }
+
+    const normEntry = (v) => {
+      if (!v || typeof v !== "object") return null;
+      // Backward compatibility:
+      // - { id, title } -> youtube
+      // - { youtubeId, title } -> youtube
+      // - { type:"file", src:"video-xxx.mp4" } -> file
+      if (v.type === "file" || v.src) return { type: "file", title: v.title || "", date: v.date || "", src: v.src || "", poster: v.poster || "" };
+      const yid = v.youtubeId || v.id || "";
+      return { type: "youtube", title: v.title || "", date: v.date || "", youtubeId: yid };
     };
 
-    if (input) {
-      input.addEventListener("change", () => handleFile(input.files?.[0]));
+    const items = videos.map(normEntry).filter(Boolean);
+
+    const card = (v) => {
+      const title = escapeHtml(v.title || "");
+      const date = v.date ? `<time datetime="${escapeHtml(v.date)}">${escapeHtml(v.date)}</time>` : "";
+      let media = "";
+      if (v.type === "youtube" && v.youtubeId) {
+        const src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.youtubeId)}?rel=0&modestbranding=1`;
+        media = `
+          <div class="video__frame">
+            <iframe
+              src="${src}"
+              title="${title || "YouTube video"}"
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen></iframe>
+          </div>
+        `;
+      } else if (v.type === "file" && v.src) {
+        const poster = v.poster ? ` poster="${escapeHtml(v.poster)}"` : "";
+        media = `
+          <div class="video__frame">
+            <video controls preload="metadata"${poster}>
+              <source src="${escapeHtml(v.src)}" />
+              お使いのブラウザは動画再生に対応していません。
+            </video>
+          </div>
+        `;
+      } else {
+        media = `<div class="video__frame"><div class="muted">（動画が未設定です）</div></div>`;
+      }
+
+      return `
+        <article class="card card--video" data-reveal="d1">
+          ${media}
+          <div class="card__body">
+            <h3>${title || "Untitled"}</h3>
+            <div class="row row--meta">${date}</div>
+          </div>
+        </article>
+      `;
+    };
+
+    grid.innerHTML = items.map(card).join("") || `<p class="muted">動画がありません。</p>`;
+    grid.removeAttribute("aria-busy");
+    initReveal();
+  }
+
+  // -------- Contact --------
+  async function pageContact() {
+    const mailBtn = $("#contactMailBtn");
+    const copyBtn = $("#contactCopyBtn");
+    const tplOut = $("#contactTpl");
+    const formWrap = $("#contactFormWrap");
+    const formFrame = $("#contactFormFrame");
+    const contactNote = $("#contactModeNote");
+
+    let cfg = {};
+    try {
+      cfg = await fetchJson("site.json");
+    } catch (_) {}
+
+    const mode = String(cfg.contactMode || "mailto").toLowerCase(); // mailto | googleform | both
+    const email = cfg.contactEmailEnc ? b64revDecode(cfg.contactEmailEnc) : String(cfg.contact_email || cfg.contactEmail || "").trim();
+    const subject = String(cfg.contactSubject || "Message");
+    const body = String(cfg.contactBodyTemplate || "こんにちは！\n\n（ここにメッセージを書いてください）\n");
+    const formUrl = String(cfg.googleFormEmbedUrl || "").trim();
+
+    if (tplOut) tplOut.textContent = body;
+
+    const showMail = mode === "mailto" || mode === "both";
+    const showForm = (mode === "googleform" || mode === "both") && !!formUrl;
+
+    if (contactNote) {
+      const parts = [];
+      if (showMail) parts.push("メール");
+      if (showForm) parts.push("フォーム");
+      contactNote.textContent = parts.length ? `連絡方法：${parts.join(" / ")}` : "連絡方法が未設定です（Toolsで設定してください）";
     }
-    if (zone) {
-      const onDragOver = (ev) => { ev.preventDefault(); zone.classList.add("dropzone--hover"); };
-      const onDragLeave = () => zone.classList.remove("dropzone--hover");
-      const onDrop = (ev) => {
-        ev.preventDefault();
-        zone.classList.remove("dropzone--hover");
-        const file = ev.dataTransfer?.files?.[0];
-        handleFile(file);
-      };
-      zone.addEventListener("dragover", onDragOver);
-      zone.addEventListener("dragleave", onDragLeave);
-      zone.addEventListener("drop", onDrop);
-      zone.addEventListener("click", () => input?.click());
-      zone.setAttribute("role", "button");
-      zone.setAttribute("tabindex", "0");
-      zone.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); input?.click(); }
+
+    if (mailBtn) {
+      if (showMail && email) {
+        const href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        mailBtn.href = href;
+        mailBtn.classList.remove("btn--ghost");
+        mailBtn.textContent = "メールを開く";
+      } else {
+        mailBtn.href = "tools.html";
+        mailBtn.classList.add("btn--ghost");
+        mailBtn.textContent = "（未設定）Toolsで連絡先を設定";
+      }
+      mailBtn.style.display = showMail ? "" : "none";
+    }
+
+    if (copyBtn) {
+      copyBtn.style.display = showMail ? "" : "none";
+      copyBtn.addEventListener("click", async () => {
+        if (!email) return alert("メールが未設定です。Toolsで設定してください。");
+        try {
+          await navigator.clipboard.writeText(email);
+          copyBtn.textContent = "コピーしました！";
+          setTimeout(() => (copyBtn.textContent = "メールアドレスをコピー"), 1200);
+        } catch (_) {
+          prompt("コピーできない場合は手動でコピーしてください：", email);
+        }
       });
     }
-  };
 
-  // posts.json import
-  bindJsonImport("t_postsFile", "t_postsDrop", "t_postsStatus", (data) => {
-    if (!Array.isArray(data)) throw new Error("posts.json must be an array");
-    posts = data;
-  });
-
-  // videos.json import
-  bindJsonImport("t_videosFile", "t_videosDrop", "t_videosStatus", (data) => {
-    if (!Array.isArray(data)) throw new Error("videos.json must be an array");
-    videos = data;
-  });
-
-  // site.json import (optional, just for prefill)
-  bindJsonImport("t_siteFile", "t_siteDrop", "t_siteStatus", (data) => {
-    const email = typeof data?.contact_email === "string" ? data.contact_email : "";
-    const subject = typeof data?.mailto_subject === "string" ? data.mailto_subject : "";
-    const body = typeof data?.mailto_body === "string" ? data.mailto_body : "";
-    const elE = document.getElementById("t_siteEmail");
-    const elS = document.getElementById("t_siteSubject");
-    const elB = document.getElementById("t_siteBody");
-    if (elE && email) elE.value = email;
-    if (elS && subject) elS.value = subject;
-    if (elB && body) elB.value = body;
-  });
-
-  const elTitle = $("#t_postTitle");
-  const elSlug = $("#t_postSlug");
-  const elDate = $("#t_postDate");
-  const elRead = $("#t_postRead");
-  const elExcerpt = $("#t_postExcerpt");
-  const elTags = $("#t_postTags");
-  const elBody = $("#t_postBody");
-
-  const outPosts = $("#t_postsJsonOut");
-  const outMd = $("#t_mdOut");
-  const btnMake = $("#t_makePost");
-  const btnMd = $("#t_downloadMd");
-  const btnPostsJson = $("#t_downloadPostsJson");
-
-  let lastSlug = "";
-  let lastMd = "";
-  let lastPostsJson = "";
-
-  const today = new Date();
-  if (elDate && !elDate.value) {
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, "0");
-    const d = String(today.getDate()).padStart(2, "0");
-    elDate.value = `${y}-${m}-${d}`;
+    if (formWrap) formWrap.style.display = showForm ? "" : "none";
+    if (formFrame && showForm) {
+      // Only allow https embed
+      if (!/^https:\/\//i.test(formUrl)) {
+        formWrap.innerHTML = `<p class="muted">フォームURLが不正です。Toolsで https の埋め込みURLを設定してください。</p>`;
+      } else {
+        formFrame.src = formUrl;
+      }
+    }
   }
 
-  btnMake?.addEventListener("click", () => {
-    const title = String(elTitle?.value ?? "").trim() || "（タイトル未入力）";
-    const date = String(elDate?.value ?? "").trim() || "";
-    const slug = (String(elSlug?.value ?? "").trim() || slugifyJP(title));
-    const read = Number(elRead?.value ?? "") || undefined;
-    const excerpt = String(elExcerpt?.value ?? "").trim();
-    const tags = parseCSVTags(elTags?.value ?? "");
-    const body = String(elBody?.value ?? "").trim() || `# ${title}
+  // -------- Tools (Owner) --------
+  function initDropzone(dropEl, onFiles) {
+    if (!dropEl) return;
+    const input = dropEl.querySelector("input[type=file]");
+    const activatePick = () => input?.click();
 
-本文を書いてください。
-`;
-
-    const entry = {
-      slug,
-      title,
-      date: date || undefined,
-      readMinutes: read,
-      excerpt: excerpt || undefined,
-      tags: tags.length ? tags : undefined
+    const prevent = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
     };
 
-    // sanitize undefined for JSON output
-    const clean = (obj) => JSON.parse(JSON.stringify(obj, (_, v) => (v === undefined ? undefined : v)));
+    dropEl.addEventListener("click", activatePick);
 
-    const newPosts = [clean(entry), ...posts].filter(Boolean);
+    ["dragenter", "dragover"].forEach((t) =>
+      dropEl.addEventListener(t, (e) => {
+        prevent(e);
+        dropEl.classList.add("dropzone--hover");
+      })
+    );
+    ["dragleave", "drop"].forEach((t) =>
+      dropEl.addEventListener(t, (e) => {
+        prevent(e);
+        dropEl.classList.remove("dropzone--hover");
+      })
+    );
 
-    lastSlug = slug;
-    lastMd = body.endsWith("
-") ? body : body + "
-";
-    lastPostsJson = JSON.stringify(newPosts, null, 2);
+    dropEl.addEventListener("drop", (e) => {
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length) onFiles(files);
+    });
 
-    outPosts.textContent = lastPostsJson;
-    outMd.textContent = lastMd;
-
-    btnMd.disabled = false;
-    btnPostsJson.disabled = false;
-  });
-
-  btnMd?.addEventListener("click", () => {
-    if (!lastSlug) return;
-    downloadText(`post-${lastSlug}.md`, lastMd);
-  });
-
-  btnPostsJson?.addEventListener("click", () => {
-    if (!lastPostsJson) return;
-    downloadText("posts.json", lastPostsJson);
-  });
-
-  // YouTube tool
-  const elUrl = $("#t_ytUrl");
-  const elYtTitle = $("#t_ytTitle");
-  const elYtDesc = $("#t_ytDesc");
-  const outVideos = $("#t_videosJsonOut");
-  const btnAddVideo = $("#t_addVideo");
-  const btnVideosJson = $("#t_downloadVideosJson");
-
-  let lastVideosJson = "";
-
-  btnAddVideo?.addEventListener("click", () => {
-    const id = extractYouTubeId(elUrl?.value ?? "");
-    const title = String(elYtTitle?.value ?? "").trim() || "（タイトル未入力）";
-    const desc = String(elYtDesc?.value ?? "").trim();
-
-    if (!id) {
-      outVideos.textContent = "YouTube URL からIDを抽出できませんでした。URL（または動画ID）を確認してください。";
-      btnVideosJson.disabled = true;
-      return;
-    }
-
-    const entry = { youtubeId: id, title, description: desc || undefined };
-    const clean = (obj) => JSON.parse(JSON.stringify(obj, (_, v) => (v === undefined ? undefined : v)));
-    const newVideos = [clean(entry), ...videos].filter(Boolean);
-
-    lastVideosJson = JSON.stringify(newVideos, null, 2);
-    outVideos.textContent = lastVideosJson;
-    btnVideosJson.disabled = false;
-  });
-
-  btnVideosJson?.addEventListener("click", () => {
-    if (!lastVideosJson) return;
-    downloadText("videos.json", lastVideosJson);
-  });
-}
-
-async function pageContact() {
-  const btn = $("#contactMailBtn");
-  const copyBtn = $("#copyEmailBtn");
-  const tplOut = $("#contactTemplateOut");
-
-  const cfg = await loadSiteConfig();
-  const email = cfg?.contactEmail || "";
-  const subject = cfg?.contactSubject || "Message";
-  const body = cfg?.contactBodyTemplate || "Hello";
-
-  // Show template for easy copy
-  if (tplOut) tplOut.textContent = body;
-
-  // Build mailto link (encode)
-  if (btn) {
-    if (!email || email.includes("example.com")) {
-      btn.textContent = "（設定が必要）メールを設定してください";
-      btn.classList.add("btn--ghost");
-      btn.setAttribute("href", "/tools/");
-      btn.setAttribute("title", "Toolsでメールアドレスを設定してください");
-    } else {
-      const href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      btn.setAttribute("href", href);
-    }
+    input?.addEventListener("change", () => {
+      const files = Array.from(input.files || []);
+      if (files.length) onFiles(files);
+      input.value = "";
+    });
   }
 
-  // Copy email (simple UX)
-  copyBtn?.addEventListener("click", async () => {
-    if (!email || email.includes("example.com")) {
-      alert("まだメールアドレスが設定されていません。site.json を編集してください。");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(email);
-      copyBtn.textContent = "コピーしました！";
-      setTimeout(()=> (copyBtn.textContent = "メールアドレスをコピー"), 1200);
-    } catch (_) {
-      // fallback: prompt
-      window.prompt("コピーして使ってください", email);
-    }
-  });
-  // Site settings tool (site.json)
-  const elSiteEmail = $("#t_siteEmail");
-  const elSiteSubject = $("#t_siteSubject");
-  const elSiteBody = $("#t_siteBody");
-  const btnMakeSite = $("#t_makeSiteJson");
-  const btnDlSite = $("#t_downloadSiteJson");
-  const outSite = $("#t_siteJsonOut");
-
-  let lastSiteJson = "";
-
-  // Prefill from current config if available
-  const cfg = await loadSiteConfig();
-  if (cfg) {
-    if (elSiteEmail) elSiteEmail.value = cfg.contactEmail || "";
-    if (elSiteSubject) elSiteSubject.value = cfg.contactSubject || "";
-    if (elSiteBody) elSiteBody.value = cfg.contactBodyTemplate || "";
+  async function fileToUint8(file) {
+    const buf = await file.arrayBuffer();
+    return new Uint8Array(buf);
   }
 
-  btnMakeSite?.addEventListener("click", () => {
-    const email = String(elSiteEmail?.value ?? "").trim();
-    const subject = String(elSiteSubject?.value ?? "").trim() || "翠山海翔サイトからのメッセージ";
-    const body = String(elSiteBody?.value ?? "").trim() || "こんにちは！\n\n（ここにメッセージを書いてください）\n";
+  async function fileToText(file) {
+    return await file.text();
+  }
 
-    const next = {
-      ...(cfg || {}),
-      contactEmail: email,
-      contactSubject: subject,
-      contactBodyTemplate: body.endsWith("\n") ? body : body + "\n"
+  // CRC32 for ZIP
+  function crc32(bytes) {
+    let c = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+      c ^= bytes[i];
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  // ZIP (store, no compression)
+  function buildZipStore(entries) {
+    // entries: [{name, data(Uint8Array)}]
+    const enc = new TextEncoder();
+    const files = [];
+    const central = [];
+    let offset = 0;
+
+    const u16 = (n) => Uint8Array.from([n & 255, (n >>> 8) & 255]);
+    const u32 = (n) => Uint8Array.from([n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]);
+    const concat = (arrs) => {
+      const len = arrs.reduce((a, b) => a + b.length, 0);
+      const out = new Uint8Array(len);
+      let p = 0;
+      for (const a of arrs) {
+        out.set(a, p);
+        p += a.length;
+      }
+      return out;
     };
 
-    lastSiteJson = JSON.stringify(next, null, 2);
-    if (outSite) outSite.textContent = lastSiteJson;
-    if (btnDlSite) btnDlSite.disabled = false;
-  });
-
-  btnDlSite?.addEventListener("click", () => {
-    if (!lastSiteJson) return;
-    downloadText("site.json", lastSiteJson);
-
-  // Upload-only contact settings (obfuscated mailto)
-  const elCE = $("#t_contactEmailPlain");
-  const elCS = $("#t_contactSubject2");
-  const elCB = $("#t_contactBody2");
-  const btnMake2 = $("#t_makeSiteJson2");
-  const btnDl2 = $("#t_downloadSiteJson2");
-  const out2 = $("#t_siteJsonOut2");
-
-  let lastSiteJson2 = "";
-
-  // Prefill from current config
-  if (cfg) {
-    if (elCS) elCS.value = cfg.contactSubject || "";
-    if (elCB) elCB.value = cfg.contactBodyTemplate || "";
-  }
-
-  btnMake2?.addEventListener("click", () => {
-    const emailPlain = String(elCE?.value ?? "").trim();
-    const subject = String(elCS?.value ?? "").trim() || "翠山海翔サイトからのメッセージ";
-    const body = String(elCB?.value ?? "").trim() || "こんにちは！\n\n（ここにメッセージを書いてください）\n";
-    if (!emailPlain) {
-      alert("メールが空です。入力してください。");
-      return;
-    }
-    const next = {
-      ...(cfg || {}),
-      contactMode: "mailto_obfuscated",
-      contactEmailEnc: b64revEncode(emailPlain),
-      contactSubject: subject,
-      contactBodyTemplate: body.endsWith("\n") ? body : body + "\n"
+    const dosTime = () => {
+      const d = new Date();
+      const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
+      const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+      return { time: time & 0xffff, date: date & 0xffff };
     };
-    lastSiteJson2 = JSON.stringify(next, null, 2);
-    if (out2) out2.textContent = lastSiteJson2;
-    if (btnDl2) btnDl2.disabled = false;
-  });
 
-  btnDl2?.addEventListener("click", () => {
-    if (!lastSiteJson2) return;
-    downloadText("site.json", lastSiteJson2);
-  });
-  });
+    for (const ent of entries) {
+      const nameBytes = enc.encode(ent.name);
+      const data = ent.data;
+      const crc = crc32(data);
+      const { time, date } = dosTime();
 
-}
+      // Local file header
+      const localHeader = concat([
+        u32(0x04034b50),
+        u16(20), // version
+        u16(0), // flags
+        u16(0), // compression: store
+        u16(time),
+        u16(date),
+        u32(crc),
+        u32(data.length),
+        u32(data.length),
+        u16(nameBytes.length),
+        u16(0), // extra
+        nameBytes,
+      ]);
 
-async function pageBlogPost() {
-  const bodyEl = $("#postBody");
-  const titleEl = $("#postTitle");
-  const dateEl = $("#postDate");
-  const readEl = $("#postRead");
-  const excerptEl = $("#postExcerpt");
-  const tagsEl = $("#postTags");
-  const prevEl = $("#prevPost");
-  const nextEl = $("#nextPost");
+      files.push(localHeader, data);
 
-  try {
-    const params = new URLSearchParams(location.search);
-    const slug = params.get("slug");
-    if (!slug) throw new Error("Missing slug");
+      // Central directory header
+      const centralHeader = concat([
+        u32(0x02014b50),
+        u16(20), // made by
+        u16(20), // needed
+        u16(0), // flags
+        u16(0), // compression
+        u16(time),
+        u16(date),
+        u32(crc),
+        u32(data.length),
+        u32(data.length),
+        u16(nameBytes.length),
+        u16(0), // extra
+        u16(0), // comment
+        u16(0), // disk
+        u16(0), // internal attrs
+        u32(0), // external attrs
+        u32(offset),
+        nameBytes,
+      ]);
+      central.push(centralHeader);
 
-    const posts = await loadJSON("posts.json");
-    const idx = posts.findIndex(p => p.slug === slug);
-    if (idx === -1) throw new Error("Post not found");
+      offset += localHeader.length + data.length;
+    }
 
-    const p = posts[idx];
-    document.title = `${p.title} | My Night & City Notes`;
+    const centralStart = offset;
+    const centralBytes = concat(central);
+    offset += centralBytes.length;
 
-    titleEl.textContent = p.title ?? "";
-    dateEl.textContent = p.date ?? "";
-    readEl.textContent = p.readMinutes ? `${p.readMinutes} min` : "";
-    excerptEl.textContent = p.excerpt ?? "";
+    const end = concat([
+      u32(0x06054b50),
+      u16(0),
+      u16(0),
+      u16(entries.length),
+      u16(entries.length),
+      u32(centralBytes.length),
+      u32(centralStart),
+      u16(0),
+    ]);
 
-    tagsEl.innerHTML = (p.tags ?? []).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join("");
-
-    // prev/next
-    const prev = posts[idx + 1];
-    const next = posts[idx - 1];
-    prevEl.href = prev ? `post.html?slug=${encodeURIComponent(prev.slug)}` : "blog.html";
-    nextEl.href = next ? `post.html?slug=${encodeURIComponent(next.slug)}` : "blog.html";
-
-    const md = await loadText(`post-${encodeURIComponent(slug)}.md`);
-    bodyEl.innerHTML = renderMarkdown(md);
-  } catch (e) {
-    bodyEl.innerHTML = `<h2>読み込みエラー</h2><p>URL（slug）と posts.json / 記事ファイルを確認してください。</p>`;
-    console.error(e);
-  } finally {
-    bodyEl?.setAttribute("aria-busy", "false");
+    return concat([...files, centralBytes, end]);
   }
-}
 
-(function boot() {
-  setYears();
+  function downloadBlob(filename, blob) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 0);
+  }
 
-  const page = document.body?.dataset?.page;
-  if (page === "home") pageHome();
-  if (page === "blog-index") pageBlogIndex();
-  if (page === "blog-post") pageBlogPost();
-  if (page === "videos") pageVideos();
-  if (page === "tools") pageTools();
+  async function pageTools() {
+    const state = {
+      posts: [],
+      videos: [],
+      site: {},
+      // changed/new files (name -> Uint8Array)
+      files: new Map(),
+      loaded: { posts: false, videos: false, site: false },
+    };
+
+    const elPackStatus = $("#t_packStatus");
+
+    // ---- Load current published data (recommended) ----
+    async function loadFromSite() {
+      try {
+        const [posts, videos, site] = await Promise.all([
+          fetchJson("posts.json").catch(() => []),
+          fetchJson("videos.json").catch(() => []),
+          fetchJson("site.json").catch(() => ({})),
+        ]);
+        state.posts = Array.isArray(posts) ? posts : [];
+        state.videos = Array.isArray(videos) ? videos : [];
+        state.site = site && typeof site === "object" ? site : {};
+        state.loaded = { posts: true, videos: true, site: true };
+
+        // Update UI lists
+        refreshPostSelect();
+        refreshVideoSelect();
+        fillSiteForm();
+
+        setStatus(elPackStatus, "公開中のデータを読み込みました。編集して「更新パック」を書き出せます。", "ok");
+      } catch (e) {
+        setStatus(elPackStatus, "公開中データの読み込みに失敗しました。下の「ファイル読み込み」を使ってください。", "ng");
+      }
+    }
+
+    $("#t_loadFromSite")?.addEventListener("click", loadFromSite);
+    // Auto-load on Tools page (best-effort)
+    loadFromSite();
+
+    // ---- Import files (optional) ----
+    const importZone = $("#t_packImportZone");
+    initDropzone(importZone, async (files) => {
+      try {
+        for (const f of files) {
+          const name = f.name;
+          if (name === "posts.json") {
+            state.posts = JSON.parse(await fileToText(f));
+            state.loaded.posts = true;
+          } else if (name === "videos.json") {
+            state.videos = JSON.parse(await fileToText(f));
+            state.loaded.videos = true;
+          } else if (name === "site.json") {
+            state.site = JSON.parse(await fileToText(f));
+            state.loaded.site = true;
+          } else if (name.startsWith("post-") && name.endsWith(".md")) {
+            const t = await fileToText(f);
+            state.files.set(name, new TextEncoder().encode(t));
+          } else if (/\.(png|jpg|jpeg|webp|gif|mp4|webm|mov)$/i.test(name) || name.startsWith("video-") || name.startsWith("img-") || name.startsWith("poster-")) {
+            state.files.set(name, await fileToUint8(f));
+          }
+        }
+        refreshPostSelect();
+        refreshVideoSelect();
+        fillSiteForm();
+        setStatus(elPackStatus, "ファイルを読み込みました。", "ok");
+      } catch (e) {
+        setStatus(elPackStatus, "読み込みに失敗しました（JSONが壊れている可能性があります）。", "ng");
+      }
+    });
+
+    // ---- Blog tool ----
+    const postSel = $("#t_postSelect");
+    const elTitle = $("#t_postTitle");
+    const elSlug = $("#t_postSlug");
+    const elDate = $("#t_postDate");
+    const elTags = $("#t_postTags");
+    const elExcerpt = $("#t_postExcerpt");
+    const elBody = $("#t_postBody");
+    const elPostStatus = $("#t_postStatus");
+    const btnSavePost = $("#t_savePost");
+    const btnPreviewPost = $("#t_previewPost");
+    const previewArea = $("#t_postPreview");
+    const imgInput = $("#t_postImages");
+
+    function refreshPostSelect() {
+      if (!postSel) return;
+      const items = (state.posts || []).slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+      postSel.innerHTML = `<option value="">（新規）</option>` + items.map(p => `<option value="${escapeHtml(p.slug)}">${escapeHtml(p.title || p.slug)}</option>`).join("");
+    }
+
+    async function loadPostIntoForm(slug) {
+      const p = (state.posts || []).find(x => x.slug === slug);
+      if (!p) return;
+      if (elTitle) elTitle.value = p.title || "";
+      if (elSlug) elSlug.value = p.slug || "";
+      if (elDate) elDate.value = p.date || "";
+      if (elTags) elTags.value = (p.tags || []).join(", ");
+      if (elExcerpt) elExcerpt.value = p.excerpt || "";
+      if (elBody) {
+        const fn = `post-${p.slug}.md`;
+        // Prefer locally imported/edited version; otherwise fetch from site
+        if (state.files.has(fn)) {
+          elBody.value = new TextDecoder().decode(state.files.get(fn));
+        } else {
+          try {
+            elBody.value = await fetchText(fn);
+          } catch (_) {
+            elBody.value = `# ${p.title || p.slug}\n\n本文を書いてください。\n`;
+          }
+        }
+      }
+      setStatus(elPostStatus, "記事を読み込みました。編集して保存できます。", "ok");
+    }
+
+    postSel?.addEventListener("change", async () => {
+      const slug = postSel.value;
+      if (!slug) {
+        // new
+        if (elTitle) elTitle.value = "";
+        if (elSlug) elSlug.value = "";
+        if (elDate) elDate.value = TODAY_ISO();
+        if (elTags) elTags.value = "";
+        if (elExcerpt) elExcerpt.value = "";
+        if (elBody) elBody.value = "";
+        if (previewArea) previewArea.innerHTML = "";
+        return;
+      }
+      await loadPostIntoForm(slug);
+    });
+
+    if (elDate && !elDate.value) elDate.value = TODAY_ISO();
+
+    btnSavePost?.addEventListener("click", async () => {
+      try {
+        const title = String(elTitle?.value || "").trim();
+        if (!title) return setStatus(elPostStatus, "タイトルを入力してください。", "ng");
+        const slugIn = String(elSlug?.value || "").trim();
+        const slug = normalizeSlug(slugIn) || makeSafeSlug(title);
+        const date = String(elDate?.value || "").trim() || TODAY_ISO();
+        const tags = parseCSVTags(elTags?.value || "");
+        let body = String(elBody?.value || "").trim();
+        if (!body) body = `# ${title}\n\n本文を書いてください。\n`;
+
+        const readMinutes = estimateReadMinutes(body);
+        let excerpt = String(elExcerpt?.value || "").trim();
+        if (!excerpt) excerpt = excerptFromMd(body);
+
+        const entry = { slug, title, date, readMinutes, excerpt, tags };
+
+        // Upsert posts
+        const idx = state.posts.findIndex(p => p.slug === slug);
+        if (idx >= 0) state.posts[idx] = entry;
+        else state.posts.unshift(entry);
+
+        // Save markdown file in changed files
+        const mdName = `post-${slug}.md`;
+        const mdBytes = new TextEncoder().encode(body.endsWith("\n") ? body : body + "\n");
+        state.files.set(mdName, mdBytes);
+
+        // Update fields with normalized slug
+        if (elSlug) elSlug.value = slug;
+        refreshPostSelect();
+        if (postSel) postSel.value = slug;
+
+        setStatus(elPostStatus, `保存しました：${mdName} / posts.json（読了目安 ${readMinutes} 分）`, "ok");
+        setStatus(elPackStatus, "更新パックに変更が追加されました。", "ok");
+      } catch (e) {
+        setStatus(elPostStatus, "保存に失敗しました。", "ng");
+      }
+    });
+
+    btnPreviewPost?.addEventListener("click", () => {
+      if (!previewArea) return;
+      const body = String(elBody?.value || "");
+      previewArea.innerHTML = markdownToHtml(body);
+      initReveal();
+    });
+
+    // Images for post: auto-named and inserted into markdown
+    imgInput?.addEventListener("change", async () => {
+      const files = Array.from(imgInput.files || []);
+      if (!files.length) return;
+      const slug = normalizeSlug(String(elSlug?.value || "").trim()) || makeSafeSlug(String(elTitle?.value || "post"));
+      if (elSlug) elSlug.value = slug;
+
+      let n = 1;
+      // find next index
+      for (const name of state.files.keys()) {
+        const m = name.match(new RegExp(`^img-${slug}-(\\d+)\\.`));
+        if (m) n = Math.max(n, Number(m[1]) + 1);
+      }
+
+      let mdAdd = "";
+      for (const f of files) {
+        const ext = (f.name.split(".").pop() || "png").toLowerCase();
+        const safeExt = ["png","jpg","jpeg","webp","gif"].includes(ext) ? ext : "png";
+        const fname = `img-${slug}-${String(n).padStart(2,"0")}.${safeExt}`;
+        n++;
+        state.files.set(fname, await fileToUint8(f));
+        mdAdd += `\n\n![${f.name} ](${fname})\n`;
+      }
+
+      if (elBody) elBody.value = (String(elBody.value || "") + mdAdd).trimStart();
+      setStatus(elPostStatus, "画像を追加しました（本文末にリンクを挿入）。保存すると更新パックに入ります。", "ok");
+      imgInput.value = "";
+    });
+
+    // ---- Video tool ----
+    const vidSel = $("#t_videoSelect");
+    const vidType = $("#t_videoType");
+    const vidTitle = $("#t_videoTitle");
+    const vidSlug = $("#t_videoSlug");
+    const vidDate = $("#t_videoDate");
+    const ytUrl = $("#t_ytUrl");
+    const fileVideo = $("#t_videoFile");
+    const filePoster = $("#t_posterFile");
+    const vidStatus = $("#t_videoStatus");
+    const btnSaveVideo = $("#t_saveVideo");
+
+    function refreshVideoSelect() {
+      if (!vidSel) return;
+      const items = (state.videos || []).slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+      const label = (v) => v.title || (v.youtubeId || v.id || v.src || "video");
+      const val = (v) => (v.youtubeId || v.id || v.src || "");
+      vidSel.innerHTML = `<option value="">（新規）</option>` + items.map((v,ix)=>`<option value="${escapeHtml(String(ix))}">${escapeHtml(label(v))}</option>`).join("");
+    }
+
+    function fillVideoForm(v) {
+      if (!v) return;
+      const isFile = v.type === "file" || !!v.src;
+      if (vidType) vidType.value = isFile ? "file" : "youtube";
+      if (vidTitle) vidTitle.value = v.title || "";
+      if (vidDate) vidDate.value = v.date || TODAY_ISO();
+      if (isFile) {
+        if (vidSlug) vidSlug.value = (v.slug || "").replace(/^video-/, "").replace(/\.[^.]+$/, "");
+        if (ytUrl) ytUrl.value = "";
+      } else {
+        if (ytUrl) ytUrl.value = v.url || (v.youtubeId ? `https://www.youtube.com/watch?v=${v.youtubeId}` : "");
+      }
+    }
+
+    vidSel?.addEventListener("change", () => {
+      const v = state.videos[Number(vidSel.value)] || null;
+      if (!v) {
+        if (vidTitle) vidTitle.value = "";
+        if (vidSlug) vidSlug.value = "";
+        if (vidDate) vidDate.value = TODAY_ISO();
+        if (ytUrl) ytUrl.value = "";
+        if (fileVideo) fileVideo.value = "";
+        if (filePoster) filePoster.value = "";
+        return;
+      }
+      fillVideoForm(v);
+      setStatus(vidStatus, "動画を読み込みました。編集して保存できます。", "ok");
+    });
+
+    if (vidDate && !vidDate.value) vidDate.value = TODAY_ISO();
+
+    // Toggle UI blocks
+    function refreshVideoTypeUI() {
+      const t = vidType?.value || "youtube";
+      $("#t_blockYoutube")?.classList.toggle("hidden", t !== "youtube");
+      $("#t_blockFile")?.classList.toggle("hidden", t !== "file");
+    }
+    vidType?.addEventListener("change", refreshVideoTypeUI);
+    refreshVideoTypeUI();
+
+    btnSaveVideo?.addEventListener("click", async () => {
+      try {
+        const type = String(vidType?.value || "youtube");
+        const title = String(vidTitle?.value || "").trim();
+        const date = String(vidDate?.value || "").trim() || TODAY_ISO();
+
+        if (type === "youtube") {
+          const url = String(ytUrl?.value || "").trim();
+          const yid = getYoutubeId(url);
+          if (!yid) return setStatus(vidStatus, "YouTube URLが不正です。", "ng");
+          const entry = { type: "youtube", youtubeId: yid, title: title || "YouTube", date, url };
+          state.videos.unshift(entry);
+          refreshVideoSelect();
+          setStatus(vidStatus, "YouTube動画を保存しました。videos.json が更新パックに入ります。", "ok");
+          setStatus(elPackStatus, "更新パックに変更が追加されました。", "ok");
+          return;
+        }
+
+        // local file
+        const f = (fileVideo?.files || [])[0];
+        if (!f) return setStatus(vidStatus, "動画ファイル（mp4/webm）を選んでください。", "ng");
+        const baseSlug = normalizeSlug(String(vidSlug?.value || "").trim()) || makeSafeSlug(title || "video");
+        if (vidSlug) vidSlug.value = baseSlug;
+
+        const ext = (f.name.split(".").pop() || "mp4").toLowerCase();
+        const safeExt = ["mp4", "webm", "mov"].includes(ext) ? ext : "mp4";
+        const videoName = `video-${baseSlug}.${safeExt}`;
+        state.files.set(videoName, await fileToUint8(f));
+
+        let posterName = "";
+        const p = (filePoster?.files || [])[0];
+        if (p) {
+          const pext = (p.name.split(".").pop() || "jpg").toLowerCase();
+          const safePext = ["png", "jpg", "jpeg", "webp"].includes(pext) ? pext : "jpg";
+          posterName = `poster-${baseSlug}.${safePext}`;
+          state.files.set(posterName, await fileToUint8(p));
+        }
+
+        const entry = { type: "file", src: videoName, poster: posterName, title: title || baseSlug, date };
+        state.videos.unshift(entry);
+
+        refreshVideoSelect();
+        setStatus(vidStatus, `保存しました：${videoName}${posterName ? " / " + posterName : ""}`, "ok");
+        setStatus(elPackStatus, "更新パックに変更が追加されました。", "ok");
+      } catch (e) {
+        setStatus(vidStatus, "保存に失敗しました。", "ng");
+      }
+    });
+
+    // ---- Site settings tool ----
+    const elEmail = $("#t_siteEmail");
+    const elSubject = $("#t_siteSubject");
+    const elBodyTpl = $("#t_siteBody");
+    const elMode = $("#t_contactMode");
+    const elFormUrl = $("#t_formUrl");
+    const siteStatus = $("#t_siteStatus");
+    const btnSaveSite = $("#t_saveSite");
+
+    function fillSiteForm() {
+      const cfg = state.site || {};
+      if (elEmail) elEmail.value = cfg.contactEmailEnc ? b64revDecode(cfg.contactEmailEnc) : String(cfg.contact_email || "").trim();
+      if (elSubject) elSubject.value = String(cfg.contactSubject || "");
+      if (elBodyTpl) elBodyTpl.value = String(cfg.contactBodyTemplate || "");
+      if (elMode) elMode.value = String(cfg.contactMode || "mailto");
+      if (elFormUrl) elFormUrl.value = String(cfg.googleFormEmbedUrl || "");
+    }
+
+    btnSaveSite?.addEventListener("click", () => {
+      try {
+        const emailPlain = String(elEmail?.value || "").trim();
+        const subject = String(elSubject?.value || "").trim() || "翠山海翔サイトからのメッセージ";
+        const body = String(elBodyTpl?.value || "").trim() || "こんにちは！\n\n（ここにメッセージを書いてください）\n";
+        const mode = String(elMode?.value || "mailto");
+        const formUrl = String(elFormUrl?.value || "").trim();
+
+        const next = {
+          ...(state.site || {}),
+          contactMode: mode,
+          contactSubject: subject,
+          contactBodyTemplate: body.endsWith("\n") ? body : body + "\n",
+          contactEmailEnc: emailPlain ? b64revEncode(emailPlain) : "",
+          contact_email: "", // keep blank to discourage plain-text in repo
+          googleFormEmbedUrl: formUrl,
+        };
+        state.site = next;
+
+        setStatus(siteStatus, "site.json を更新しました（更新パックに入ります）。", "ok");
+        setStatus(elPackStatus, "更新パックに変更が追加されました。", "ok");
+      } catch (_) {
+        setStatus(siteStatus, "site.json の更新に失敗しました。", "ng");
+      }
+    });
+
+    // ---- Pack export ----
+    const btnDlPack = $("#t_downloadPack");
+    const btnDlPosts = $("#t_downloadPosts");
+    const btnDlVideos = $("#t_downloadVideos");
+    const btnDlSite = $("#t_downloadSite");
+    const btnWriteFolder = $("#t_writeFolder");
+
+    function buildJsonBytes(obj) {
+      const clean = JSON.parse(JSON.stringify(obj));
+      return new TextEncoder().encode(JSON.stringify(clean, null, 2) + "\n");
+    }
+
+    function collectPackEntries() {
+      const entries = [];
+      // Always include these 3 (even if unchanged), because they define navigation.
+      entries.push({ name: "posts.json", data: buildJsonBytes(state.posts || []) });
+      entries.push({ name: "videos.json", data: buildJsonBytes(state.videos || []) });
+      entries.push({ name: "site.json", data: buildJsonBytes(state.site || {}) });
+
+      // Include changed/new files only
+      for (const [name, data] of state.files.entries()) {
+        entries.push({ name, data });
+      }
+      return entries;
+    }
+
+    btnDlPack?.addEventListener("click", () => {
+      const entries = collectPackEntries();
+      const zipBytes = buildZipStore(entries);
+      const date = TODAY_ISO().replaceAll("-", "");
+      const blob = new Blob([zipBytes], { type: "application/zip" });
+      downloadBlob(`honnki-update-${date}.zip`, blob);
+      setStatus(elPackStatus, "更新パック（ZIP）を作成しました。ZIPを展開してGitHubにアップロードしてください。", "ok");
+    });
+
+    btnDlPosts?.addEventListener("click", () => downloadBlob("posts.json", new Blob([buildJsonBytes(state.posts || [])], { type: "application/json" })));
+    btnDlVideos?.addEventListener("click", () => downloadBlob("videos.json", new Blob([buildJsonBytes(state.videos || [])], { type: "application/json" })));
+    btnDlSite?.addEventListener("click", () => downloadBlob("site.json", new Blob([buildJsonBytes(state.site || {})], { type: "application/json" })));
+
+    // Optional: write files directly into a local folder (Chrome/Edge)
+    btnWriteFolder?.addEventListener("click", async () => {
+      if (!("showDirectoryPicker" in window)) {
+        return alert("この機能はChrome/Edgeなどの一部ブラウザのみ対応です。ZIPを書き出してください。");
+      }
+      try {
+        // @ts-ignore
+        const dir = await window.showDirectoryPicker({ mode: "readwrite" });
+        const entries = collectPackEntries();
+        for (const ent of entries) {
+          const handle = await dir.getFileHandle(ent.name, { create: true });
+          const w = await handle.createWritable();
+          await w.write(ent.data);
+          await w.close();
+        }
+        setStatus(elPackStatus, "選択したフォルダへ書き出しました。Gitでcommit/push するか、GitHubへアップロードしてください。", "ok");
+      } catch (_) {
+        setStatus(elPackStatus, "フォルダ書き出しを中断しました。", "ng");
+      }
+    });
+  }
+
+  // -------- Simple reveal animation --------
+  function initReveal() {
+    const els = $$("[data-reveal]");
+    if (!els.length) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-visible");
+            io.unobserve(e.target);
+          }
+        }
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    els.forEach((el) => io.observe(el));
+  }
+
+  function initChapters() {
+    const sections = $$("[data-chapter]");
+    if (!sections.length) return;
+
+    const rail = document.createElement("nav");
+    rail.className = "chapterRail";
+    rail.setAttribute("aria-label", "ページの章");
+
+    const dots = sections.map((sec, idx) => {
+      const btn = document.createElement("button");
+      btn.className = "chapterDot";
+      btn.type = "button";
+      btn.title = sec.getAttribute("data-chapter-label") || `Chapter ${idx + 1}`;
+      btn.addEventListener("click", () => sec.scrollIntoView({ behavior: "smooth", block: "start" }));
+      rail.appendChild(btn);
+      return btn;
+    });
+
+    document.body.appendChild(rail);
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            const idx = sections.indexOf(e.target);
+            dots.forEach((d) => d.classList.toggle("is-active", d === dots[idx]));
+          }
+        }
+      },
+      { threshold: 0.5 }
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+
+  // Boot
+  function boot() {
+    setYears();
+
+    const page = document.body?.dataset?.page || "";
+    if (page === "blog-index") pageBlogIndex();
+    if (page === "blog-post") pageBlogPost();
+    if (page === "videos") pageVideos();
     if (page === "contact") pageContact();
-  
-  initReveal();
-  initCardTilt();
-  initChapters();
+    if (page === "tools") pageTools();
+
+    initReveal();
+    initChapters();
+  }
+
+  document.addEventListener("DOMContentLoaded", boot);
 })();
