@@ -3,21 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://docs.google.com; form-action 'self'; upgrade-insecure-requests" />
-<meta name="referrer" content="strict-origin-when-cross-origin" />
-  <title>Privacy & Security | 翠山海翔</title>
-  
-    <link rel="canonical" href="https://musasci.github.io/honnki/privacy.html" />
-<link rel="stylesheet" href="site.css" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="description" content="プライバシーとセキュリティ。" />
+  <meta name="robots" content="noindex,follow" />
+  <title>プライバシー | 翠山海翔</title>
+  <link rel="canonical" href="https://musasci.github.io/honnki/privacy.html" />
+  <link rel="stylesheet" href="site.css" />
   <script src="app.js" defer></script>
 </head>
 <body data-page="privacy" class="theme-artist">
   <a class="skip" href="#main">本文へスキップ</a>
-
-  <header class="top">
+  <header class="top top--compact">
     <div class="wrap top__inner">
-      <a class="brand" href="index.html" aria-label="ホーム">
+      <a class="brand brand--mini" href="index.html" aria-label="ホーム">
         <span class="brand__mark" aria-hidden="true">
           <span class="mark__spark"></span>
           <span class="mark__spark mark__spark--2"></span>
@@ -28,66 +27,39 @@
           <span class="brand__en">Kaito Midoriyama</span>
         </span>
       </a>
-      <nav class="nav" aria-label="グローバルナビ">
-        <a href="index.html">Home</a>
-        <a href="blog.html">Blog</a>
-        <a href="tools.html">Tools</a>
-        <a href="contact.html">Contact</a>
+
+      <nav class="nav nav--mini" aria-label="グローバルナビ">
+        <a href="blog.html">記事</a>
+        <a href="videos.html">動画</a>
+        <a href="contact.html">連絡</a>
       </nav>
     </div>
   </header>
 
   <main id="main" class="section">
     <div class="wrap">
-      <h1>プライバシーとセキュリティ</h1>
-
-      <h2>メッセージを送る人へ（安全のため）</h2>
-      <ul>
-        <li>住所・電話番号・勤務先の細かい情報・本人確認書類などは送らないでください</li>
-        <li>返信が必要な場合は、連絡用のメール（新しく作ったアドレスでもOK）を使うと安心です</li>
-        <li>メールの仕組み上、送信元のメールアドレスは相手に伝わります（匿名にしたい場合は専用アドレス推奨）</li>
-      </ul>
-
-      <h2>作成者（翠山海翔）のプライバシー</h2>
-      <ul>
-        <li>連絡の返信は、作成者の「連絡用の専用メール」から行います（本アドレスを使いません）。</li>
-        <li>メール署名などに住所・電話番号などの個人情報は載せません。</li>
-      </ul>
-
-      <div class="card">
-        <h2>設計方針（リスクを下げる）</h2>
-        <ul>
-          <li>フォーム・会員登録・コメント欄を持たない（入力データの保管が発生しない）</li>
-          <li>記事はMarkdown→ブラウザ内で安全側にレンダリング（生のHTMLは実行しない）</li>
-          <li>埋め込みは最小化。YouTubeはクリックで読み込み（必要な時だけ外部通信）</li>
-        </ul>
-
-        <h2>YouTube埋め込み（公開後）</h2>
-        <p>
-          動画を公開後、<code>/videos.json</code> にYouTube動画IDを登録すると表示されます。
-          埋め込みは <code>youtube-nocookie.com</code> を使用し、さらにクリックされるまで iframe を生成しません。
-        </p>
-
-        
-        <h2>公開しない方が安全な情報</h2>
-        <ul>
-          <li>住所、電話番号、勤務先の詳細、日常の行動パターンが特定できる情報</li>
-          <li>写真のEXIF（位置情報/撮影日時/機種）が残った画像</li>
-          <li>限定公開のURL、APIキー、パスワード等</li>
-        </ul>
-
-        <h2>補足</h2>
-        <p class="muted">
-          セキュリティは「設定」と「運用」の両方で決まります。載せる情報の選別が最重要です。
-        </p>
+      <div class="section__head">
+        <h1 class="hero__title" data-reveal="slow d1">プライバシー</h1>
       </div>
+
+      <section class="card" data-reveal="d2">
+        <div class="card__body prose">
+          <ul>
+            <li>このサイトは静的サイト（GitHub Pages）です。</li>
+            <li>YouTube埋め込みを使う場合、YouTube側でデータが扱われます。</li>
+            <li>連絡はGitHub（公開）です。個人情報（住所・電話・パスワード等）は送らないでください。</li>
+          <li>連絡フォーム：Googleフォームを利用する場合、送信内容はGoogle側に保存されます。</li>
+      </ul>
+        </div>
+      </section>
     </div>
   </main>
-
-  <footer class="footer">
+  <footer class="footer footer--compact">
     <div class="wrap footer__inner">
       <small>© <span data-year></span> 翠山海翔</small>
-      <a href="index.html">Home</a>
+      <span class="footer__links">
+        <a href="privacy.html">プライバシー</a>
+      </span>
     </div>
   </footer>
 </body>

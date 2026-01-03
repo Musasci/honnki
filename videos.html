@@ -1,24 +1,22 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-  
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://docs.google.com; form-action 'self'; upgrade-insecure-requests" />
-<meta name="description" content="翠山海翔の動画一覧。YouTubeは公開後に追加。" />
-  <title>Videos | 翠山海翔</title>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <link rel="canonical" href="https://musasci.github.io/honnki/videos.html" />
-<link rel="stylesheet" href="site.css" />
+  <meta name="description" content="動画。夜の断片。" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <title>Videos | 翠山海翔</title>
+  <link rel="canonical" href="https://musasci.github.io/honnki/videos.html" />
+  <link rel="stylesheet" href="site.css" />
   <script src="app.js" defer></script>
 </head>
-
 <body data-page="videos" class="theme-artist">
   <a class="skip" href="#main">本文へスキップ</a>
-
-  <header class="top">
+  <header class="top top--compact">
     <div class="wrap top__inner">
-      <a class="brand" href="index.html" aria-label="ホーム">
+      <a class="brand brand--mini" href="index.html" aria-label="ホーム">
         <span class="brand__mark" aria-hidden="true">
           <span class="mark__spark"></span>
           <span class="mark__spark mark__spark--2"></span>
@@ -30,12 +28,10 @@
         </span>
       </a>
 
-      <nav class="nav" aria-label="グローバルナビ">
-        <a href="index.html">Home</a>
-        <a href="blog.html">Blog</a>
-        <a href="tools.html">Tools</a>        <a href="contact.html">Contact</a>
-
-        <a class="nav__cta" href="privacy.html">Privacy</a>
+      <nav class="nav nav--mini" aria-label="グローバルナビ">
+        <a href="blog.html">記事</a>
+        <a href="videos.html">動画</a>
+        <a href="contact.html">連絡</a>
       </nav>
     </div>
   </header>
@@ -43,28 +39,18 @@
   <main id="main" class="section">
     <div class="wrap">
       <div class="section__head">
-        <div class="chapterDivider" data-reveal="d1"></div>
-        <h1 class="hero__title" data-reveal="slow d1">Videos</h1>
-        <p data-reveal="d2"  class="muted">YouTube公開後、<code>/videos.json</code> を更新すると表示されます。</p>
-      </div>
-
-      <div class="card tips">
-        <h2>初心者向け：追加のしかた</h2>
-        <ol>
-          <li><a class="link" href="tools.html">Tools</a> の「YouTube追加ツール」でURL→IDに変換</li>
-          <li>生成された <code>videos.json</code> をダウンロード</li>
-          <li>GitHubで <code>videos.json</code> を置き換えて保存</li>
-        </ol>
+        <h1 class="hero__title" data-reveal="slow d1">動画</h1>
       </div>
 
       <div id="videosGrid" class="grid grid--video" aria-live="polite" aria-busy="true"></div>
     </div>
   </main>
-
-  <footer class="footer">
+  <footer class="footer footer--compact">
     <div class="wrap footer__inner">
       <small>© <span data-year></span> 翠山海翔</small>
-      <a href="index.html">Home</a>
+      <span class="footer__links">
+        <a href="privacy.html">プライバシー</a>
+      </span>
     </div>
   </footer>
 </body>

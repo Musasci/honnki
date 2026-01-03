@@ -3,22 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://docs.google.com; form-action 'self'; upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
-  <meta name="description" content="お問い合わせ（メールまたはフォーム）。" />
-  <title>Contact | 翠山海翔</title>
+  <meta name="description" content="連絡（送信のみ）。" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <title>連絡 | 翠山海翔</title>
   <link rel="canonical" href="https://musasci.github.io/honnki/contact.html" />
   <link rel="stylesheet" href="site.css" />
   <script src="app.js" defer></script>
-  <meta name="robots" content="noindex,nofollow" />
 </head>
 
 <body data-page="contact" class="theme-artist">
-  <a class="skip" href="#main">本文へスキップ</a>
-
-  <header class="top">
+<a class="skip" href="#main">本文へスキップ</a>
+  <header class="top top--compact">
     <div class="wrap top__inner">
-      <a class="brand" href="index.html" aria-label="ホーム">
+      <a class="brand brand--mini" href="index.html" aria-label="ホーム">
         <span class="brand__mark" aria-hidden="true">
           <span class="mark__spark"></span>
           <span class="mark__spark mark__spark--2"></span>
@@ -30,58 +29,39 @@
         </span>
       </a>
 
-      <nav class="nav" aria-label="グローバルナビ">
-        <a href="index.html">Home</a>
-        <a href="blog.html">Blog</a>
-        <a href="videos.html">Videos</a>
-        <a href="tools.html">Tools</a>
-        <a class="nav__cta" href="privacy.html">Privacy</a>
+      <nav class="nav nav--mini" aria-label="グローバルナビ">
+        <a href="blog.html">記事</a>
+        <a href="videos.html">動画</a>
+        <a href="contact.html">連絡</a>
       </nav>
     </div>
   </header>
 
+  
   <main id="main" class="section">
-    <div class="wrap">
-      <div class="section__head">
-        <h1 class="hero__title" data-reveal="slow d1">Contact</h1>
-        <p class="muted" id="contactModeNote" data-reveal="d2">連絡方法：読み込み中…</p>
-      </div>
-
-      <section class="card" data-reveal="d2">
-        <h2>メッセージを送る</h2>
-        <p class="muted">
-          返信が必要な場合は、本文に<strong>返信先</strong>（メールアドレス等）をご記入ください。
-        </p>
-
-        <div class="row">
-          <a id="contactMailBtn" class="btn" href="tools.html">読み込み中…</a>
-          <button id="contactCopyBtn" class="btn btn--ghost" type="button">メールアドレスをコピー</button>
-        </div>
-
-        <div class="out">
-          <h3>テンプレ（コピーして使えます）</h3>
-          <pre id="contactTpl" class="pre"></pre>
-        </div>
-      </section>
-
-      <section id="contactFormWrap" class="card" data-reveal="d2" style="margin-top:14px; display:none">
-        <h2>フォーム</h2>
-        <p class="muted">送信内容はフォーム提供元（Google）に渡ります。個人情報は必要最小限で。</p>
-        <div class="iframeWrap">
-          <iframe id="contactFormFrame" title="Contact form" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-        </div>
-      </section>
-
-      <p class="note" data-reveal="d2">
-        セキュリティのため、<strong>機密情報（住所・医療情報・パスワードなど）</strong>は送らないでください。
-      </p>
+  <div class="wrap">
+    <div class="section__head">
+      <h1 class="hero__title" data-reveal="slow d1">連絡</h1>
+      <p class="muted" data-reveal="d2">送信のみ</p>
     </div>
-  </main>
 
-  <footer class="footer">
+    <section class="card" data-reveal="d2" aria-label="contact form">
+      <div class="card__body">
+        <div id="contactStatus" class="status muted" aria-live="polite">読み込み中…</div>
+        <div class="frameWrap" id="contactFrameWrap" hidden>
+          <iframe id="contactFrame" class="contactFrame" title="Googleフォーム" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
+        <p class="muted" style="margin-top:12px">※ 個人情報や攻撃的な内容は送らないでください。</p>
+      </div>
+    </section>
+  </div>
+</main>
+  <footer class="footer footer--compact">
     <div class="wrap footer__inner">
       <small>© <span data-year></span> 翠山海翔</small>
-      <a href="index.html">Home</a>
+      <span class="footer__links">
+        <a href="privacy.html">プライバシー</a>
+      </span>
     </div>
   </footer>
 </body>

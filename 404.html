@@ -1,29 +1,61 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-  
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://docs.google.com; form-action 'self'; upgrade-insecure-requests" />
-<meta name="robots" content="noindex" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="description" content="ページが見つかりません。" />
+  <meta name="robots" content="noindex,nofollow" />
   <title>404 | 翠山海翔</title>
-  
-    <link rel="canonical" href="https://musasci.github.io/honnki/404.html" />
-<link rel="stylesheet" href="site.css" />
+  <link rel="canonical" href="https://musasci.github.io/honnki/404.html" />
+  <link rel="stylesheet" href="site.css" />
   <script src="app.js" defer></script>
 </head>
 <body class="theme-artist">
-  <main class="section">
+  <a class="skip" href="#main">本文へスキップ</a>
+  <header class="top top--compact">
+    <div class="wrap top__inner">
+      <a class="brand brand--mini" href="index.html" aria-label="ホーム">
+        <span class="brand__mark" aria-hidden="true">
+          <span class="mark__spark"></span>
+          <span class="mark__spark mark__spark--2"></span>
+          <span class="mark__spark mark__spark--3"></span>
+        </span>
+        <span class="brand__name">
+          <span class="brand__jp">翠山海翔</span>
+          <span class="brand__en">Kaito Midoriyama</span>
+        </span>
+      </a>
+
+      <nav class="nav nav--mini" aria-label="グローバルナビ">
+        <a href="blog.html">記事</a>
+        <a href="videos.html">動画</a>
+        <a href="contact.html">連絡</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="section">
     <div class="wrap">
-      <div class="section__head">
-        <h1 data-reveal="slow d1">404</h1>
-        <p class="muted" data-reveal="d2">ページが見つかりませんでした。リンクが古い可能性があります。</p>
-      </div>
       <section class="card" data-reveal="d2">
-        <h2>戻る</h2>
-        <p class="muted">次のリンクからホームへ戻れます。</p>
-        <a class="btn" href="index.html">ホームへ</a>
+        <div class="card__body">
+          <h1 class="hero__title">404</h1>
+          <p class="muted">Not found</p>
+          <div class="row u-mt-sm">
+            <a class="btn btn--ghost" href="index.html">Home</a>
+          </div>
+        </div>
       </section>
     </div>
   </main>
+  <footer class="footer footer--compact">
+    <div class="wrap footer__inner">
+      <small>© <span data-year></span> 翠山海翔</small>
+      <span class="footer__links">
+        <a href="privacy.html">プライバシー</a>
+      </span>
+    </div>
+  </footer>
 </body>
 </html>
