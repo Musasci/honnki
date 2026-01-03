@@ -1,0 +1,10 @@
+{
+  "artistNameJP": "翠山海翔",
+  "artistNameEN": "Kaito Midoriyama",
+  "contactSubject": "翠山海翔サイトからのメッセージ",
+  "contactBodyTemplate": "こんにちは！\n\n【用件】（例：感想 / 質問 / 依頼 / コラボ）\n【メッセージ】\n（ここに本文）\n\n【返信】（必要なら）返信がほしい / 返信は不要\n【名前】（任意）ニックネームでもOK\n",
+  "contactMode": "mailto_obfuscated",
+  "contactEmailEnc": "",
+  "ownerPrivacyNote": "返信用は専用の連絡メールを使用し、個人の本アドレスは使わない",
+  "contact_email": ""
+}

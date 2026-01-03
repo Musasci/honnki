@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="連絡ページ（GitHub Pages対応・設定ほぼゼロ）。" />
+  <title>Contact | 翠山海翔</title>
+
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; font-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; form-action 'self'; upgrade-insecure-requests" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <link rel="stylesheet" href="site.css" />
+  <script src="app.js" defer></script>
+
+  <!-- 迷惑収集リスクを下げる（完全な防御ではありません） -->
+  <meta name="robots" content="noindex,nofollow" />
+</head>
+
+<body data-page="contact" class="theme-artist">
+  <a class="skip" href="#main">本文へスキップ</a>
+
+  <header class="top">
+    <div class="wrap top__inner">
+      <a class="brand" href="index.html" aria-label="ホーム">
+        <span class="brand__mark" aria-hidden="true">
+          <span class="mark__spark"></span>
+          <span class="mark__spark mark__spark--2"></span>
+          <span class="mark__spark mark__spark--3"></span>
+        </span>
+        <span class="brand__name">
+          <span class="brand__jp">翠山海翔</span>
+          <span class="brand__en">Kaito Midoriyama</span>
+        </span>
+      </a>
+
+      <nav class="nav" aria-label="グローバルナビ">
+        <a href="index.html">Home</a>
+        <a href="blog.html">Blog</a>
+        <a href="videos.html">Videos</a>
+        <a href="tools.html">Tools</a>
+        <a class="nav__cta" href="privacy.html">Privacy</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <h1 class="hero__title" data-reveal="slow d1">Contact</h1>
+        <p class="muted" data-reveal="d2">
+          GitHub Pagesだけで動く「メール起動」方式です（サイト側で個人情報を保存しません）。
+        </p>
+      </div>
+
+      <section class="card" data-reveal="d2">
+        <h2>メールで連絡する</h2>
+        <p class="muted">
+          ボタンを押すと、お使いのメールアプリが開きます。宛先・件名・本文は <code>site.json</code> で設定できます。
+        </p>
+
+        <div class="row">
+          <a id="contactMailBtn" class="btn hero__cta" href="#" disabled>メールを作成</a>
+          <a class="btn btn--ghost" href="tools.html">Toolsで設定する</a>
+        </div>
+
+        <p id="contactStatus" class="muted" style="margin-top:12px"></p>
+
+        <hr class="line" />
+
+        <h3>セキュリティのおすすめ</h3>
+        <ul class="bullet">
+          <li>公開用の連絡先は「専用の別メール（エイリアス）」にする（本アドレスを守る）</li>
+          <li>受信側でフィルタ（件名/ドメイン）と迷惑メール対策を設定</li>
+          <li>住所・勤務先の詳細・行動パターンなど、特定につながる情報は載せない</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <small>© <span data-year></span> 翠山海翔</small>
+      <a href="index.html">Home</a>
+    </div>
+  </footer>
+</body>
+</html>

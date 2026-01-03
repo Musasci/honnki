@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; font-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://www.youtube-nocookie.com https://challenges.cloudflare.com; form-action 'self'; upgrade-insecure-requests" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="description" content="翠山海翔のブログ記事。" />
+  <title>Post | 翠山海翔</title>
+  <link rel="stylesheet" href="site.css" />
+  <script src="app.js" defer></script>
+</head>
+
+<body data-page="blog-post" class="theme-artist">
+  <a class="skip" href="#main">本文へスキップ</a>
+
+  <header class="top">
+    <div class="wrap top__inner">
+      <a class="brand" href="index.html" aria-label="ホーム">
+        <span class="brand__mark" aria-hidden="true">
+          <span class="mark__spark"></span>
+          <span class="mark__spark mark__spark--2"></span>
+          <span class="mark__spark mark__spark--3"></span>
+        </span>
+        <span class="brand__name">
+          <span class="brand__jp">翠山海翔</span>
+          <span class="brand__en">Kaito Midoriyama</span>
+        </span>
+      </a>
+
+      <nav class="nav" aria-label="グローバルナビ">
+        <a href="blog.html">Blog</a>
+        <a href="index.html">Home</a>
+        <a href="tools.html">Tools</a>        <a href="contact.html">Contact</a>
+
+        <a class="nav__cta" href="privacy.html">Privacy</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="section">
+    <div class="wrap">
+      <article class="post">
+        <header class="post__head">
+          <p class="post__meta">
+            <span class="badge" id="postDate"></span>
+            <span class="badge" id="postRead"></span>
+          </p>
+          <h1 id="postTitle">Loading...</h1>
+          <p id="postExcerpt" class="muted"></p>
+          <div id="postTags" class="tags"></div>
+        </header>
+
+        <div id="postBody" class="post__body card" aria-live="polite" aria-busy="true"></div>
+
+        <nav class="post__nav" aria-label="記事ナビゲーション">
+          <a class="link" id="prevPost" href="blog.html">← 前へ</a>
+          <a class="link" id="nextPost" href="blog.html">次へ →</a>
+        </nav>
+      </article>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <small>© <span data-year></span> 翠山海翔</small>
+      <a href="blog.html">ブログ一覧へ</a>
+    </div>
+  </footer>
+</body>
+</html>
