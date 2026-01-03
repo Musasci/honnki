@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https://i.ytimg.com; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://docs.google.com; upgrade-insecure-requests; block-all-mixed-content" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="description" content="音楽とことば。夜の静けさに寄り添う。" />
   <meta name="robots" content="index,follow,max-image-preview:large" />
@@ -13,10 +13,13 @@
   <script src="app.js" defer></script>
 </head>
 <body data-page="home" class="theme-artist">
-  <a class="skip" href="#main">本文へスキップ</a>
+  <div class="bgGlow" aria-hidden="true"></div>
+  <canvas id="sparkles" class="sparkles" aria-hidden="true"></canvas>
+
+  <a class="skip" href="#main">Skip to content</a>
   <header class="top top--compact">
     <div class="wrap top__inner">
-      <a class="brand brand--mini" href="index.html" aria-label="ホーム">
+      <a class="brand brand--mini" href="index.html" aria-label="Home">
         <span class="brand__mark" aria-hidden="true">
           <span class="mark__spark"></span>
           <span class="mark__spark mark__spark--2"></span>
@@ -28,10 +31,11 @@
         </span>
       </a>
 
-      <nav class="nav nav--mini" aria-label="グローバルナビ">
-        <a href="blog.html">記事</a>
-        <a href="videos.html">動画</a>
-        <a href="contact.html">連絡</a>
+      <nav class="nav nav--mini" aria-label="Global navigation">
+        <a href="index.html">Home</a>
+        <a href="blog.html">Articles</a>
+        <a href="videos.html">Videos</a>
+        <a href="contact.html">Contact</a>
       </nav>
     </div>
   </header>
@@ -40,26 +44,31 @@
     <div class="wrap">
       <div class="hero hero--mini">
         <h1 class="hero__title" data-reveal="slow d1">ふとした<span class="grad">夜</span>を歌に変える</h1>
-        <p class="muted" data-reveal="d2">記事 / 動画</p>
+        <p class="muted" data-reveal="d2">Articles / Videos</p>
       </div>
 
       <div class="grid grid--home" data-reveal="d2">
-        <section class="card card--home" aria-label="Latest post">
+        <section class="card card--home" aria-label="Latest article">
           <div class="card__body">
-            <div class="kicker">最新の記事</div>
+            <div class="kicker">Latest Article</div>
             <div id="homeLatestPost" class="miniList" aria-busy="true"></div>
             <div class="row row--end">
-              <a class="btn btn--ghost" href="blog.html">記事</a>
+              <a class="btn btn--ghost" href="blog.html">Articles</a>
             </div>
           </div>
         </section>
 
-        <section class="card card--home" aria-label="Latest video">
+        <section class="card card--home" aria-label="Videos">
           <div class="card__body">
-            <div class="kicker">最新の動画</div>
-            <div id="homeLatestVideo" class="miniList" aria-busy="true"></div>
+            <div class="kicker">Videos</div>
+            <div id="homeVideos" class="miniList">
+              <a class="miniItem" href="videos.html">
+                <div class="miniItem__title">Open YouTube</div>
+                <div class="miniItem__meta">Latest videos</div>
+              </a>
+            </div>
             <div class="row row--end">
-              <a class="btn btn--ghost" href="videos.html">動画</a>
+              <a class="btn btn--ghost" href="videos.html">Videos</a>
             </div>
           </div>
         </section>
@@ -70,7 +79,7 @@
     <div class="wrap footer__inner">
       <small>© <span data-year></span> 翠山海翔</small>
       <span class="footer__links">
-        <a href="privacy.html">プライバシー</a>
+        <a href="privacy.html">Privacy</a>
       </span>
     </div>
   </footer>

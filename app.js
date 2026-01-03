@@ -20,6 +20,12 @@
     return `${y}.${m}.${day}`;
   };
 
+  async function fetchText(path) {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Fetch failed: ' + path);
+    return (await res.text()).trim();
+  }
+
   async function fetchJson(path) {
     const res = await fetch(path, { cache: "no-store" });
     if (!res.ok) throw new Error(`fetch failed: ${path}`);
@@ -31,7 +37,96 @@
     document.querySelectorAll("[data-year]").forEach(el => el.textContent = String(y));
   }
 
-  // --------- Home ----------
+  
+  // --------- Sparkles (urban night) ----------
+  function initSparkles(){
+    const canvas = document.getElementById("sparkles");
+    if (!canvas) return;
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    let w=0,h=0,dpr=1,particles=[];
+    const rand = (a,b)=>a+Math.random()*(b-a);
+
+    function resize(){
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = Math.floor(window.innerWidth);
+      h = Math.floor(window.innerHeight);
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      const count = Math.round(Math.min(90, Math.max(40, (w*h)/25000)));
+      particles = Array.from({length:count}).map(()=>({
+        x: Math.random()*w,
+        y: Math.random()*h,
+        vx: rand(-0.06,0.06),
+        vy: rand(-0.03,0.09),
+        r: rand(0.6, 1.8),
+        a: rand(0.15, 0.55),
+        t: rand(0, Math.PI*2),
+        s: rand(0.008,0.02)
+      }));
+    }
+
+    function step(){
+      if (reduce) { drawStatic(); return; }
+      ctx.clearRect(0,0,w,h);
+      ctx.globalCompositeOperation = "lighter";
+      for (const p of particles){
+        p.x += p.vx; p.y += p.vy;
+        p.t += p.s;
+        if (p.x < -20) p.x = w+20;
+        if (p.x > w+20) p.x = -20;
+        if (p.y < -20) p.y = h+20;
+        if (p.y > h+20) p.y = -20;
+
+        const tw = 0.5 + 0.5*Math.sin(p.t);
+        const a = p.a * (0.5 + 0.8*tw);
+        const r = p.r * (0.8 + 0.7*tw);
+
+        // soft glow
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r*10);
+        g.addColorStop(0, `rgba(109,247,255,${a})`);
+        g.addColorStop(0.45, `rgba(184,135,255,${a*0.55})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r*10, 0, Math.PI*2);
+        ctx.fill();
+
+        // tiny star core
+        ctx.fillStyle = `rgba(255,255,255,${Math.min(0.9,a*1.4)})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+      requestAnimationFrame(step);
+    }
+
+    function drawStatic(){
+      ctx.clearRect(0,0,w,h);
+      ctx.globalCompositeOperation = "lighter";
+      for (const p of particles){
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r*10);
+        g.addColorStop(0, `rgba(109,247,255,${p.a*0.6})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r*10, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    resize();
+    window.addEventListener("resize", resize, { passive:true });
+    requestAnimationFrame(step);
+  }
+
+// --------- Home ----------
   function renderMiniItem(el, title, meta, href) {
     el.innerHTML = `
       <a class="miniItem" href="${href}">
@@ -49,20 +144,9 @@
       if (Array.isArray(posts) && posts.length) {
         const p = posts[0];
         renderMiniItem(postBox, p.title || "", fmtDate(p.date), `post.html?slug=${encodeURIComponent(p.slug)}`);
-      } else postBox.innerHTML = `<div class="muted">まだありません</div>`;
+      } else postBox.innerHTML = `<div class="muted">No items yet</div>`;
     } catch {
-      if (postBox) postBox.innerHTML = `<div class="muted">読み込みに失敗しました</div>`;
-    }
-
-    try {
-      const videos = await fetchJson("videos.json");
-      videoBox?.setAttribute("aria-busy", "false");
-      if (Array.isArray(videos) && videos.length) {
-        const v = videos[0];
-        renderMiniItem(videoBox, v.title || "Video", fmtDate(v.date), "videos.html");
-      } else if (videoBox) videoBox.innerHTML = `<div class="muted">まだありません</div>`;
-    } catch {
-      if (videoBox) videoBox.innerHTML = `<div class="muted">読み込みに失敗しました</div>`;
+      if (postBox) postBox.innerHTML = `<div class="muted">Failed to load.</div>`;
     }
   }
 
@@ -97,13 +181,13 @@
           const blob = `${p.title||""}\n${p.excerpt||""}\n${(p.tags||[]).join(" ")}`.toLowerCase();
           return blob.includes(term);
         });
-        grid.innerHTML = filtered.map(postCard).join("") || `<div class="muted">見つかりません</div>`;
+        grid.innerHTML = filtered.map(postCard).join("") || `<div class="muted">Not found.</div>`;
       };
 
       q?.addEventListener("input", render);
       render();
     } catch {
-      grid.innerHTML = `<div class="muted">読み込みに失敗しました</div>`;
+      grid.innerHTML = `<div class="muted">Failed to load.</div>`;
     }
   }
 
@@ -172,53 +256,58 @@
       mount.setAttribute("aria-busy", "false");
       document.title = `${p.title || "Post"} | honNKi`;
     } catch {
-      mount.innerHTML = `<div class="muted">記事を読み込めませんでした</div>`;
+      mount.innerHTML = `<div class="muted">Could not load the article.</div>`;
       mount.setAttribute("aria-busy", "false");
     }
   }
 
-  // --------- Videos ----------
-  function youTubeId(url) {
-    try {
-      const u = new URL(url);
-      if (u.hostname.includes("youtu.be")) return u.pathname.replace("/", "");
-      if (u.searchParams.get("v")) return u.searchParams.get("v");
-      const m = u.pathname.match(/\/embed\/([^/]+)/);
-      return m ? m[1] : "";
-    } catch { return ""; }
-  }
-
-  function videoCard(v) {
-    const title = escapeHtml(v.title || "Video");
-    const d = escapeHtml(fmtDate(v.date));
-    const yt = v.type === "youtube" ? youTubeId(v.url || "") : "";
-    const thumb = yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : "";
-    const media = yt
-      ? `<div class="videoThumb"><img alt="" loading="lazy" src="${thumb}"></div>`
-      : `<div class="videoThumb"><div class="muted">動画</div></div>`;
-    const link = yt ? `<a class="btn btn--ghost" href="${escapeHtml(v.url||"")}" target="_blank" rel="noopener noreferrer">YouTube</a>` : "";
-    return `
-      <article class="card card--video">
-        <div class="card__body">
-          <div class="kicker">${d}</div>
-          <h2 class="card__title">${title}</h2>
-          ${media}
-          <div class="row row--end">${link}</div>
-        </div>
-      </article>`;
-  }
-
   async function pageVideos() {
-    const grid = $("#videosGrid");
-    if (!grid) return;
+    const wrap = $("#ytEmbedWrap");
+    const frame = $("#ytEmbed");
+    const msg = $("#ytEmbedMsg");
+    const openBtn = $("#ytOpenBtn");
+    if (!wrap || !frame) return;
+
+    const isPlaceholder = (s) => !s || s.startsWith("PASTE_");
+    const extractChannelId = (s) => {
+      const m = String(s || "").match(/(UC[0-9A-Za-z_-]{20,})/);
+      return m ? m[1] : "";
+    };
+    const extractUploadsPlaylist = (s) => {
+      const m = String(s || "").match(/(UU[0-9A-Za-z_-]{20,})/);
+      return m ? m[1] : "";
+    };
+
     try {
-      const videos = await fetchJson("videos.json");
-      const all = Array.isArray(videos) ? videos : [];
-      grid.setAttribute("aria-busy", "false");
-      grid.innerHTML = all.map(videoCard).join("") || `<div class="muted">まだありません</div>`;
+      const channelRaw = await fetchText("youtube_channel_url.txt").catch(() => "");
+      const embedRaw = await fetchText("youtube_embed_url.txt").catch(() => "");
+
+      const channel = isPlaceholder(channelRaw) ? "" : channelRaw;
+      const embed = isPlaceholder(embedRaw) ? "" : embedRaw;
+
+      if (openBtn) openBtn.href = channel || "https://www.youtube.com";
+
+      let finalEmbed = embed;
+      if (!finalEmbed) {
+        const chId = extractChannelId(channel);
+        const uu = extractUploadsPlaylist(channel) || (chId ? ("UU" + chId.slice(2)) : "");
+        if (uu) {
+          finalEmbed = `https://www.youtube-nocookie.com/embed?listType=playlist&list=${encodeURIComponent(uu)}&rel=0&modestbranding=1`;
+        }
+      }
+
+      if (finalEmbed) {
+        frame.src = finalEmbed;
+        if (msg) msg.remove();
+      } else {
+        if (msg) msg.textContent = "Set your YouTube channel once (in local Tools).";
+      }
     } catch {
-      grid.innerHTML = `<div class="muted">読み込みに失敗しました</div>`;
+      if (msg) msg.textContent = "Failed to load.";
+    } finally {
+      wrap.setAttribute("aria-busy", "false");
     }
+
   }
 
   // --------- Contact ----------
@@ -226,7 +315,7 @@
     try {
       const url = new URL(u);
       if (url.protocol !== "https:") return false;
-      if (!url.hostname.endsWith("google.com")) return false;
+      if (!(url.hostname === 'docs.google.com' || url.hostname.endsWith('.google.com'))) return false;
       return true;
     } catch { return false; }
   }
@@ -239,23 +328,24 @@
       const res = await fetch("contact_form_url.txt", { cache: "no-store" });
       const txt = (await res.text()).trim();
       if (!txt || txt.startsWith("PASTE_")) {
-        if (status) status.textContent = "フォーム準備中";
+        if (status) status.textContent = "Form is not set yet.";
         return;
       }
       const url = txt.includes("embedded=true") ? txt : (txt + (txt.includes("?") ? "&" : "?") + "embedded=true");
       if (!validFormUrl(url)) {
-        if (status) status.textContent = "フォームURLが無効です";
+        if (status) status.textContent = "Form URL is invalid.";
         return;
       }
       if (frame) frame.src = url;
       if (wrap) wrap.hidden = false;
       if (status) status.textContent = "";
     } catch {
-      if (status) status.textContent = "フォームを読み込めませんでした";
+      if (status) status.textContent = "Failed to load the form.";
     }
   }
 
-  function boot() {
+  function boot() {    initSparkles();
+
     setYear();
     const page = document.body?.dataset?.page || "";
     if (page === "home") pageHome();

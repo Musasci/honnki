@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests; block-all-mixed-content" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https://i.ytimg.com; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://docs.google.com; upgrade-insecure-requests; block-all-mixed-content" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="description" content="翠山海翔のブログ記事。" />
   <title>Post | 翠山海翔</title>
@@ -15,11 +15,14 @@
 </head>
 
 <body data-page="blog-post" class="theme-artist">
-  <a class="skip" href="#main">本文へスキップ</a>
+  <div class="bgGlow" aria-hidden="true"></div>
+  <canvas id="sparkles" class="sparkles" aria-hidden="true"></canvas>
+
+  <a class="skip" href="#main">Skip to content</a>
 
   <header class="top top--compact">
     <div class="wrap top__inner">
-      <a class="brand brand--mini" href="index.html" aria-label="ホーム">
+      <a class="brand brand--mini" href="index.html" aria-label="Home">
         <span class="brand__mark" aria-hidden="true">
           <span class="mark__spark"></span>
           <span class="mark__spark mark__spark--2"></span>
@@ -31,7 +34,12 @@
         </span>
       </a>
 
-      <nav class="nav nav--mini" aria-label="グローバルナビ"><a href="blog.html">記事</a><a href="videos.html">動画</a><a href="contact.html">連絡</a></nav>
+      <nav class="nav nav--mini" aria-label="Global navigation">
+        <a href="index.html">Home</a>
+        <a href="blog.html">Articles</a>
+        <a href="videos.html">Videos</a>
+        <a href="contact.html">Contact</a>
+      </nav>
     </div>
   </header>
 

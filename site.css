@@ -967,3 +967,47 @@ body.tools-locked #toolsUnlock { display: block; }
 #toolsUnlock { display: none; }
 #toolsUnlock .row { display:flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
 #toolsUnlock .input { flex: 1 1 220px; }
+
+
+/* --- Urban night: moving glow + glitter --- */
+.bgGlow{
+  position:fixed; inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(900px 600px at 20% 10%, rgba(255,79,163,.16), transparent 60%),
+    radial-gradient(800px 560px at 80% 5%, rgba(109,247,255,.12), transparent 55%),
+    radial-gradient(900px 700px at 55% 85%, rgba(184,135,255,.10), transparent 60%),
+    linear-gradient(180deg, var(--bg), var(--bg2));
+  animation: glowShift 22s ease-in-out infinite alternate;
+}
+@keyframes glowShift{
+  0%{ filter: hue-rotate(0deg) brightness(1); transform: scale(1); }
+  100%{ filter: hue-rotate(10deg) brightness(1.05); transform: scale(1.02); }
+}
+.sparkles{
+  position:fixed; inset:0;
+  z-index:1;
+  pointer-events:none;
+  width:100%;
+  height:100%;
+}
+header, main, footer{ position:relative; z-index:2; }
+
+/* subtle shimmer on key text */
+.hero__title{
+  text-shadow:
+    0 0 18px rgba(109,247,255,.08),
+    0 0 28px rgba(184,135,255,.06);
+  animation: titleShimmer 8s ease-in-out infinite;
+}
+@keyframes titleShimmer{
+  0%,100%{ text-shadow: 0 0 16px rgba(109,247,255,.07), 0 0 26px rgba(184,135,255,.05); }
+  50%{ text-shadow: 0 0 22px rgba(109,247,255,.10), 0 0 34px rgba(255,79,163,.06); }
+}
+
+/* respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .bgGlow{ animation: none; }
+  .hero__title{ animation: none; }
+}
