@@ -1,3 +1,6 @@
 User-agent: *
-Disallow: /tools/
-Disallow: /contact/
+Allow: /
+Disallow: /tools.html
+Disallow: /contact.html
+
+Sitemap: https://musasci.github.io/honnki/sitemap.xml

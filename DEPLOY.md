@@ -18,3 +18,8 @@
 ## 4. デザインが出ない/404になる場合
 - リポジトリ直下に **site.css** と **app.js** があるか確認
 - `Settings → Pages` の Branch が `main` / `(root)` になっているか確認
+
+
+## 検索に出す（最短）
+- トップページは `meta robots = index,follow` に設定済みです。
+- `sitemap.xml` を同梱しています。Googleで早く見つけてもらうには Google Search Console でサイトを登録し、サイトマップを送信してください。
